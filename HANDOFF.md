@@ -68,6 +68,13 @@
 | **DeepSeek Harness** (`~/.dsh/skills`) | NTFS Junction | ✓ 10 项正常联接（独占 RP 技能保留） |
 | **Claude Code** (`~/.claude/skills`) | NTFS Junction | ✓ 10 项正常联接 |
 
+### 3.3 设备部署覆盖表 (Machines Matrix)
+
+| 设备名称 | 操作系统 / 架构 | 部署路径 | 状态 | 备注 |
+| :--- | :--- | :--- | :--- | :--- |
+| **电脑 A (主工作站)** | Windows 11 x64 | `G:\agent-skills-workspace` | ✓ 已就绪 | 统一管理中枢，5 大 Agent 全量接入 |
+| **电脑 B (Surface Pro 11)** | Windows 11 ARM64 | `C:\Users\akino\agent-skills-workspace` | ✓ 已就绪 | Antigravity 与 Codex 全量接入，保留 `hotel-*` |
+
 ---
 
 ## 4. 跨设备同步操作规范 (Multi-Machine Workflow)
