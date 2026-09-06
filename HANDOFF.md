@@ -1,4 +1,4 @@
-# Handoff: 跨设备与多 Coding Agent 技能/MCP 统一管理系统
+﻿# Handoff: 跨设备与多 Coding Agent 技能/MCP 统一管理系统
 
 本文档记录当前统一管理系统的最新实施状态、决策共识、核心资产清单与后续演进路线，便于未来会话或跨设备协同随时无缝接续。
 
@@ -13,86 +13,77 @@
    * 本地以 `G:\agent-skills-workspace\skills\` 为唯一权威目录。
 2. **免提权 NTFS Junction 本地零拷贝分发**：
    * 本地各 Agent 统一通过 Windows 目录联接（Junction）挂载中央母本，编辑一处、处处实时生效，绝不复制副本。
-3. **严格的分层准入与边界隔离**：
-   * **全局通用方法 (纳入中央库)**：严谨排错流程、跨会话交接、设计树对齐、技能编写标准、工程沉淀框架。
-   * **工具专有技能 (保留在本地生态)**：Antigravity 的 25+ GCP/BigQuery/Airflow 技能留在本地；Grok 的工程自检与 DeepSeek Harness 的角色扮演技能留在各自专属生态，不混入中央库。
-   * **业务专属技能 (项目随行管理)**：绑定企业特定环境（如 `gpo_read`、`windows-update-activity`、`mac_data`、`floor_plans`）的技能留在各自工程的 `.agents/skills/` 目录中，随工程 Git 仓库走，严防污染全局 Prompt 上下文。
+3. **定向分发与环境隔离 (Selective Target Dispatch)**：
+   * **通用技能**：全量广播挂载至所有 Agent（如排错纪律、面试对齐、交接存档）。
+   * **专属/增强技能**：通过分发过滤器白名单精准定向推送。例如 `progress-brief` 仅供给 Antigravity 与 Grok；对于原生已内置阶段反馈机制的 Codex 和 DeepSeek Harness，分发脚本自动排除并不予挂载，彻底杜绝提示词冗余与行为冲突。
+   * **业务专属技能**：绑定特定企业/项目环境的技能留在工程随行 `.agents/skills/` 中，严防污染全局上下文。
 
 ---
 
 ## 2. 实施进度与现状里程碑 (Completed Milestones)
 
 - [x] **Step 1: 建立中央规范与目录结构**
-  * 规范建立了 `skills/`、`mcp/`、`scripts/` 等目录。
-  * 采用“独立文件夹 + 带 YAML frontmatter 的 `SKILL.md`”最高兼容度通用形态。
+  * 规范建立 `skills/`、`mcp/`、`scripts/` 等目录，采用标准 `SKILL.md` 规范。
 - [x] **Step 2: 资产全面盘点与冲突治理**
-  * 梳理了 Antigravity、Codex、Grok、DSH 及百度同步盘（`G:\BaiduSyncdisk`）的全部技能与 MCP。
-  * 发现了版本严重分化的 4 个高频技能（`grill-me`, `grilling`, `handoff`, `writing-great-skills`），并确立了统一标准。
-  * 发现并修复了 `~/.codex/skills/` 中 6 个指向失效百度盘路径的坏死软链接。
+  * 统一了高频分化技能，治理并清理了历史坏死软链接。
 - [x] **Step 3: 开源工具链安装与 GUI 纳管**
-  * 安装 `skills-manager` (v1.36.2)、`prpm` (v2.1.39)、`sync-mcp` (v0.1.5)。
-  * `skills-manager` 桌面端与 CLI 已完整索引中央库全部 10 项技能。
+  * `skills-manager` (v1.36.2) 桌面端与 CLI 已完整纳管中央库。
 - [x] **Step 4: 编写 Windows 一键挂载自动化脚本**
-  * 编写 [`scripts/sync-skills.ps1`](file:///g:/agent-skills-workspace/scripts/sync-skills.ps1)，支持坏死链接自动清理、冲突物理文件夹安全备份、NTFS Junction 挂载与状态健康度审计（`-Status`）。
-  * 已成功挂载到本机活跃的 5 个 Agent，实现 100% 联通。
+  * 编写 [`scripts/sync-skills.ps1`](file:///g:/agent-skills-workspace/scripts/sync-skills.ps1)，支持自动查杀坏死链接、冲突物理文件夹备份与健康度审计（`-Status`）。
 - [x] **Step 5: GitHub 远程私有中心库推送**
-  * 依托 GitHub MCP 创建私有仓库，全部技能母本、脚本与文档已推送到 `origin main`。
+  * 依托 GitHub 建立私有仓库，实现跨电脑 Git 同步底座。
+- [x] **Step 6: 新增 `progress-brief` 过程透明技能与定向分发架构升级**
+  * **技能纳管**：引入 `progress-brief`，定义多步骤任务阶段性简报（8 个关键触发时机）、事实与推测严格边界、修改前报备与验证闭环。
+  * **分发机制升级**：在 `sync-skills.ps1` 中新增 `$SkillTargetFilters` 白名单过滤表。仅向 `Antigravity`、`Antigravity (Skills Manager)` 和 `Grok (grokbuild)` 挂载 `progress-brief`；对 `Codex`、`DeepSeek Harness`、`Claude Code` 自动排除并在检测到残留时自动清理。
+  * **全局规则联动**：
+    * Antigravity 全局生效：`~/.gemini/config/AGENTS.md` 与 `GEMINI.md`
+    * Grok (grokbuild) 全局生效：`~/.grok/rules/AGENTS.md`
 
 ---
 
 ## 3. 当前中央资产全景 (Inventory)
 
-### 3.1 核心通用技能库 (10 项)
+### 3.1 核心通用技能库 (11 项)
 
-| 技能名称 | 来源/规范 | 核心职责 |
+| 技能名称 | 适用 Agent 范围 | 核心职责 |
 | :--- | :--- | :--- |
-| **`grilling`** | Matt Pocock 官方最新版 | 深度对齐面试，基于**设计树**与 **Frontier 决策前沿**逐轮推进，直到无任何默认假设。 |
-| **`grill-me`** | Matt Pocock 官方最新版 | 快捷触发别名，直接跳转调用 `grilling`。 |
-| **`grill-with-docs`**| Matt Pocock 官方最新版 | 深度工程对齐版，自动在会话中产出并维护 `CONTEXT.md` 与 ADR 架构决策记录。 |
-| **`handoff`** | Matt Pocock 官方最新版 | 紧凑交接文档生成，支持参数提示、凭证脱敏与下一步推荐技能。 |
-| **`writing-for-agents`**| Matt Pocock 官方最新版 | 技能编写核心规范（梯子模型、渐进披露、抗过早完成、Leading Words）。 |
-| **`writing-great-skills`**| 官方兼容别名 | 别名跳转至 `writing-for-agents`，兼容历史提示词。 |
-| **`teach`** | Matt Pocock 官方最新版 | 体系化互动教学，附带学习记录、词汇表与教案全套模板。 |
-| **`project-cairn`** | 百度盘精选沉淀 | 工程资产知识结晶框架，防项目经验漂移与文档陈旧。 |
-| **`task-checkpoint`** | 百度盘精选沉淀 | 跨会话/换设备/下班前的任务断点快照保存与复工恢复。 |
-| **`systematic-debugging`**| Antigravity 精选提拔 | 严谨的排错纪律，强制假设验证与根因取证，防盲目盲改。 |
+| **`progress-brief`** | **Antigravity / Grok 定向** | 阶段性过程透明简报，事实/判断/推测严格隔离，禁止虚假声称完成与盲目重试。 |
+| **`grilling`** | 全量所有 Agent | 深度对齐面试，基于设计树与 Frontier 决策前沿逐轮推进，挖出隐藏假设。 |
+| **`grill-me`** | 全量所有 Agent | 快捷触发别名，直接跳转调用 `grilling`。 |
+| **`grill-with-docs`**| 全量所有 Agent | 深度工程对齐版，自动在会话中产出并维护 `CONTEXT.md` 与 ADR 架构决策记录。 |
+| **`handoff`** | 全量所有 Agent | 紧凑交接文档生成，支持参数提示、凭证脱敏与下一步推荐技能。 |
+| **`writing-for-agents`**| 全量所有 Agent | 技能编写核心规范（梯子模型、渐进披露、抗过早完成、Leading Words）。 |
+| **`writing-great-skills`**| 全量所有 Agent | 官方兼容别名，跳转至 `writing-for-agents`。 |
+| **`teach`** | 全量所有 Agent | 体系化互动教学，附带学习记录、词汇表与教案全套模板。 |
+| **`project-cairn`** | 全量所有 Agent | 工程资产知识结晶框架，防项目经验漂移与文档陈旧。 |
+| **`task-checkpoint`** | 全量所有 Agent | 跨会话/换设备/下班前的任务断点快照保存与复工恢复。 |
+| **`systematic-debugging`**| 全量所有 Agent | 严谨排错纪律，强制假设验证与根因取证，杜绝盲目改动。 |
 
 ### 3.2 各 Agent 本地当前挂载映射表
 
-| Agent 目标目录 | 挂载方式 | 状态 |
-| :--- | :--- | :--- |
-| **Antigravity (原生引擎)** (`~/.gemini/config/skills`) | NTFS Junction | ✓ 10 项正常联接（独占 25+ GCP 技能保留） |
-| **Antigravity (GUI 视图)** (`~/.gemini/antigravity/skills`)| NTFS Junction | ✓ 10 项正常联接（供 Skills Manager 索引显示） |
-| **ChatGPT (Codex)** (`~/.codex/skills`) | NTFS Junction | ✓ 10 项正常联接（坏死旧链接已清理） |
-| **Grok (grokbuild)** (`~/.grok/skills`) | NTFS Junction | ✓ 10 项正常联接（独占 check-work 等保留） |
-| **DeepSeek Harness** (`~/.dsh/skills`) | NTFS Junction | ✓ 10 项正常联接（独占 RP 技能保留） |
-| **Claude Code** (`~/.claude/skills`) | NTFS Junction | ✓ 10 项正常联接 |
-
-### 3.3 设备部署覆盖表 (Machines Matrix)
-
-| 设备名称 | 操作系统 / 架构 | 部署路径 | 状态 | 备注 |
-| :--- | :--- | :--- | :--- | :--- |
-| **电脑 A (主工作站)** | Windows 11 x64 | `G:\agent-skills-workspace` | ✓ 已就绪 | 统一管理中枢，5 大 Agent 全量接入 |
-| **电脑 B (Surface Pro 11)** | Windows 11 ARM64 | `C:\Users\akino\agent-skills-workspace` | ✓ 已就绪 | Antigravity 与 Codex 全量接入，保留 `hotel-*` |
+| Agent 目标目录 | 挂载方式 | 挂载技能数 | 定向过滤策略与状态 |
+| :--- | :--- | :--- | :--- |
+| **Antigravity (原生引擎)** (`~/.gemini/config/skills`) | NTFS Junction | **11 项** | ✓ 全量 + `progress-brief`（独占 GCP 技能保留） |
+| **Antigravity (GUI 视图)** (`~/.gemini/antigravity/skills`)| NTFS Junction | **11 项** | ✓ 全量 + `progress-brief`（供 Skills Manager 索引） |
+| **Grok (grokbuild)** (`~/.grok/skills`) | NTFS Junction | **11 项** | ✓ 全量 + `progress-brief`（专属规则在 `~/.grok/rules/`） |
+| **ChatGPT (Codex)** (`~/.codex/skills`) | NTFS Junction | **10 项** | ✓ 通用 10 项（`progress-brief` 已被规则排除，原生自带） |
+| **DeepSeek Harness** (`~/.dsh/skills`) | NTFS Junction | **10 项** | ✓ 通用 10 项（`progress-brief` 已被规则排除，原生自带） |
+| **Claude Code** (`~/.claude/skills`) | NTFS Junction | **10 项** | ✓ 通用 10 项（`progress-brief` 已被规则排除） |
 
 ---
 
 ## 4. 跨设备同步操作规范 (Multi-Machine Workflow)
 
-当在**电脑 B** 或**电脑 C** 上同步与维护本套体系时，执行标准操作流：
+当在**电脑 B (Surface Pro 11)** 或**电脑 C (办公机)** 上同步时：
 
-1. **首次部署**：
+1. **日常拉取更新**：
    ```powershell
-   git clone https://github.com/akinokoiri/agent-skills-workspace.git G:\agent-skills-workspace
-   npm install -g prpm sync-mcp
-   cd G:\agent-skills-workspace
+   cd G:\agent-skills-workspace  # (或对应机器克隆路径)
+   git pull
    .\scripts\sync-skills.ps1
    ```
-2. **日常同步更新**：
-   * 在电脑 A 修改或新增技能后：`git add . && git commit -m "feat: add skill" && git push`
-   * 在电脑 B / C 终端只需执行：`git pull`
-   * **无需重新挂载**：因为本地 Agent 都是通过 Junction 动态读取 `G:\agent-skills-workspace\skills\`，Git 文件的更新会瞬间对所有 Agent 生效。
-3. **状态检查**：
+   * 脚本会自动识别各 Agent，并根据 `$SkillTargetFilters` 自动完成白名单定向挂载与排除项清理。
+2. **状态健康度检查**：
    ```powershell
    .\scripts\sync-skills.ps1 -Status
    ```
@@ -101,11 +92,8 @@
 
 ## 5. 下一步建议与后续路线 (Roadmap & Next Steps)
 
-未来接手本工作区的 Agent 可依据用户需求推进以下演进：
+未来接手本工作区的 Agent 可推进：
 
-1. **MCP 跨端自动化同步联动**：
-   * 进一步利用 `sync-mcp` 或扩充 `scripts/`，在检测到新 MCP 时支持一键推送到 Codex (`config.toml`)、Grok (`config.toml`) 或 Claude Desktop 配置中。
-2. **Cursor / MDC 格式转译自动化**：
-   * 若后续在部分电脑上增加 Cursor / Windsurf，可利用已安装的 `prpm` 将中央库标准文件夹转译为 `.cursor/rules/*.mdc` 单文件。
-3. **CI / 质量校验管线**：
-   * 在 GitHub 私有仓库中添加 GitHub Action 或 pre-commit 钩子，自动基于 `writing-for-agents` 的规范校验新增技能的 YAML frontmatter 完整性。
+1. **提交中央库变更**：本次已在中央库就绪 `scripts/sync-skills.ps1` 与 `skills/progress-brief/`，在主分支执行 `git add . && git commit -m "feat: add progress-brief and target filters" && git push`。
+2. **多机规则自动化部署**：目前 Antigravity 与 Grok 的全局 `AGENTS.md` 保存在机器本地配置目录下（`~/.gemini/config` 与 `~/.grok/rules`），可考虑在 `sync-skills.ps1` 中加入全局规则文件的辅助联接/复制功能，换设备后一键到位。
+3. **MCP 跨端同步联动**：继续依托 `sync-mcp` 将中央模板自动化映射给各 Agent 的 MCP 配置。

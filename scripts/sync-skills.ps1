@@ -65,6 +65,11 @@ function Test-BrokenLink($Path) {
     return $false
 }
 
+# 2.1 定义特定技能的分发目标过滤器 (未列出的技能默认全量分发给所有 Agent)
+$SkillTargetFilters = @{
+    "progress-brief" = @("Antigravity", "Antigravity (Skills Manager)", "Grok (grokbuild)")
+}
+
 # 3. 状态检查模式 (-Status)
 if ($Status) {
     Write-Host "`n📊 [检查当前各 Agent 挂载状态]" -ForegroundColor Yellow
@@ -78,9 +83,14 @@ if ($Status) {
 
         $items = Get-ChildItem -Path $targetDir -Force
         foreach ($skill in $CentralSkills) {
+            $isRestricted = $SkillTargetFilters.ContainsKey($skill.Name)
+            $isAllowedForAgent = (!$isRestricted) -or ($agentName -in $SkillTargetFilters[$skill.Name])
+
             $matched = $items | Where-Object { $_.Name -eq $skill.Name }
             if ($matched) {
-                if ($matched.LinkType -eq "Junction") {
+                if (!$isAllowedForAgent) {
+                    Write-Host "  ! 异常残留: $($skill.Name) (按规则应排除)" -ForegroundColor Red
+                } elseif ($matched.LinkType -eq "Junction") {
                     $isHealthy = (Test-Path $matched.Target)
                     $color = if ($isHealthy) { "Green" } else { "Red" }
                     $tag = if ($isHealthy) { "✓ 正常联接" } else { "✗ 坏死联接" }
@@ -89,7 +99,11 @@ if ($Status) {
                     Write-Host "  ! 物理副本: $($skill.Name) (非中央联接)" -ForegroundColor Yellow
                 }
             } else {
-                Write-Host "  - 未挂载 : $($skill.Name)" -ForegroundColor DarkGray
+                if ($isAllowedForAgent) {
+                    Write-Host "  - 未挂载 : $($skill.Name)" -ForegroundColor DarkGray
+                } else {
+                    Write-Host "  · [已排除] : $($skill.Name)" -ForegroundColor DarkGray
+                }
             }
         }
     }
@@ -150,6 +164,24 @@ foreach ($agentName in $AgentTargets.Keys | Sort-Object) {
         $skillName = $skill.Name
         $sourcePath = $skill.FullName
         $destPath = Join-Path $targetDir $skillName
+
+        # 检查是否在该 Agent 的挂载目标规则内
+        $isRestricted = $SkillTargetFilters.ContainsKey($skillName)
+        $isAllowedForAgent = (!$isRestricted) -or ($agentName -in $SkillTargetFilters[$skillName])
+
+        if (!$isAllowedForAgent) {
+            # 当前 Agent 在排除名单中：若目标已存在残留，自动清理
+            if (Test-Path $destPath) {
+                Write-Host "   🧹 发现排除技能残留，自动清理: $skillName" -ForegroundColor Yellow
+                if ($DryRun) {
+                    Write-Host "      [DryRun] 将删除排除残留: $destPath" -ForegroundColor Magenta
+                } else {
+                    Remove-Item -Path $destPath -Force -Recurse
+                    Write-Host "      ✓ 已清理排除残留。" -ForegroundColor Green
+                }
+            }
+            continue
+        }
 
         # 检查目标是否已存在
         if (Test-Path $destPath) {
