@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     跨 Agent 与跨机器统一技能分发脚本 (Windows NTFS Junction)
 .DESCRIPTION
@@ -267,6 +267,27 @@ if (!(Test-Path $WorkspaceAgentsSkills)) {
     Write-Host "   ✓ 工作区规范联接正常: $WorkspaceAgentsSkills" -ForegroundColor Green
 }
 
+# C. 自动分发全局行为准则 rules/AGENTS.md 到各 Agent 规则目录
+$CentralAgentsRule = Join-Path $WorkspaceRoot "rules\AGENTS.md"
+if (Test-Path $CentralAgentsRule) {
+    Write-Host "`n📋 正在同步全局行为准则 rules/AGENTS.md..." -ForegroundColor Yellow
+
+    # Antigravity 全局规则
+    $GeminiRulesDir = Join-Path $GeminiConfigDir "rules"
+    if (!(Test-Path $GeminiRulesDir)) { New-Item -ItemType Directory -Path $GeminiRulesDir -Force | Out-Null }
+    Copy-Item -Path $CentralAgentsRule -Destination (Join-Path $GeminiRulesDir "AGENTS.md") -Force
+    Write-Host "   ✓ 已同步至 Antigravity 规则: $GeminiRulesDir\AGENTS.md" -ForegroundColor Green
+
+    # Grok (grokbuild) 全局规则
+    $GrokRulesDir = Join-Path $UserHome ".grok\rules"
+    if (Test-Path (Join-Path $UserHome ".grok")) {
+        if (!(Test-Path $GrokRulesDir)) { New-Item -ItemType Directory -Path $GrokRulesDir -Force | Out-Null }
+        Copy-Item -Path $CentralAgentsRule -Destination (Join-Path $GrokRulesDir "AGENTS.md") -Force
+        Write-Host "   ✓ 已同步至 Grok 规则: $GrokRulesDir\AGENTS.md" -ForegroundColor Green
+    }
+}
+
 Write-Host "`n============================================================" -ForegroundColor Cyan
 Write-Host " 🎉 所有目标 Agent 的技能挂载与环境配置已处理完毕！" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Cyan
+
