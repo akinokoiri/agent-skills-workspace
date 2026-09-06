@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     跨 Agent 与跨机器统一技能分发脚本 (Windows NTFS Junction)
 .DESCRIPTION
@@ -219,7 +219,9 @@ $skillsJsonObj = @{
         @{ path = $formattedCentralPath }
     )
 }
-$skillsJsonObj | ConvertTo-Json -Depth 5 | Set-Content -Path $SkillsJsonPath -Encoding utf8
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+$skillsJsonText = $skillsJsonObj | ConvertTo-Json -Depth 5
+[System.IO.File]::WriteAllText($SkillsJsonPath, $skillsJsonText, $utf8NoBom)
 Write-Host "   ✓ 已生成 Antigravity 全局技能索引: $SkillsJsonPath" -ForegroundColor Green
 
 # B. 确保当前工作区规范 .agents/skills 联接

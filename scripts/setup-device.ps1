@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     新设备/老设备跨 Agent 统一工作区环境一键初始化与修复脚本
 .DESCRIPTION
@@ -130,7 +130,9 @@ if ($foundSmCli) {
                 repo_path = $WorkspaceRoot
                 pending_migration_from = (Join-Path $UserHome ".skills-manager")
             }
-            $repoCfg | ConvertTo-Json -Depth 3 | Set-Content -Path $repoCfgFile -Encoding UTF8
+            $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+            $repoCfgJson = $repoCfg | ConvertTo-Json -Depth 3
+            [System.IO.File]::WriteAllText($repoCfgFile, $repoCfgJson, $utf8NoBom)
             Write-Host "  ✓ 已同步 Skills Manager 本地工作区指向: $WorkspaceRoot" -ForegroundColor Green
         } catch {
             Write-Host "  ⚠️ 同步 Skills Manager 配置遇到警告: $_" -ForegroundColor DarkYellow

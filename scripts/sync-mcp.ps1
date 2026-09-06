@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     跨 Agent 与跨设备统一 MCP 服务同步与注入脚本 (Antigravity & Codex)
 .DESCRIPTION
@@ -138,6 +138,7 @@ foreach ($targetFile in @($GeminiConfigFile, $GeminiAgyFile)) {
     $parentDir = Split-Path $targetFile -Parent
     if (!(Test-Path $parentDir)) { New-Item -ItemType Directory -Path $parentDir -Force | Out-Null }
     
+    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
     # 若已有配置且包含其他 server，合并而非覆盖
     if (Test-Path $targetFile) {
         try {
@@ -145,13 +146,14 @@ foreach ($targetFile in @($GeminiConfigFile, $GeminiAgyFile)) {
             if ($existing.mcpServers) {
                 # 合入 github
                 $existing.mcpServers | Add-Member -MemberType NoteProperty -Name "github" -Value $antigravityConfigObj.mcpServers.github -Force
-                $existing | ConvertTo-Json -Depth 5 | Set-Content -Path $targetFile -Encoding UTF8
+                $mergedJson = $existing | ConvertTo-Json -Depth 5
+                [System.IO.File]::WriteAllText($targetFile, $mergedJson, $utf8NoBom)
                 Write-Host "   ✓ 已合并写入 Antigravity MCP: $targetFile" -ForegroundColor Green
                 continue
             }
         } catch {}
     }
-    $antigravityJson | Set-Content -Path $targetFile -Encoding UTF8
+    [System.IO.File]::WriteAllText($targetFile, $antigravityJson, $utf8NoBom)
     Write-Host "   ✓ 已写入 Antigravity MCP: $targetFile" -ForegroundColor Green
 }
 
