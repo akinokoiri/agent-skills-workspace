@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     跨 Agent 与跨设备统一 MCP 服务同步与注入脚本 (Antigravity & Codex)
 .DESCRIPTION

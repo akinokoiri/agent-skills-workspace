@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     新设备/老设备跨 Agent 统一工作区环境一键初始化与修复脚本
 .DESCRIPTION
