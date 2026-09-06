@@ -61,7 +61,8 @@
 
 | Agent 目标目录 | 挂载方式 | 状态 |
 | :--- | :--- | :--- |
-| **Antigravity / Gemini CLI** (`~/.gemini/config/skills`) | NTFS Junction | ✓ 10 项正常联接（独占 25+ GCP 技能保留） |
+| **Antigravity (原生引擎)** (`~/.gemini/config/skills`) | NTFS Junction | ✓ 10 项正常联接（独占 25+ GCP 技能保留） |
+| **Antigravity (GUI 视图)** (`~/.gemini/antigravity/skills`)| NTFS Junction | ✓ 10 项正常联接（供 Skills Manager 索引显示） |
 | **ChatGPT (Codex)** (`~/.codex/skills`) | NTFS Junction | ✓ 10 项正常联接（坏死旧链接已清理） |
 | **Grok (grokbuild)** (`~/.grok/skills`) | NTFS Junction | ✓ 10 项正常联接（独占 check-work 等保留） |
 | **DeepSeek Harness** (`~/.dsh/skills`) | NTFS Junction | ✓ 10 项正常联接（独占 RP 技能保留） |

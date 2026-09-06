@@ -36,8 +36,9 @@ $AgentTargets = @{
     "ChatGPT (Codex)"  = Join-Path $UserHome ".codex\skills"
     "Grok (grokbuild)" = Join-Path $UserHome ".grok\skills"
     "DeepSeek Harness" = Join-Path $UserHome ".dsh\skills"
-    "Antigravity"      = Join-Path $UserHome ".gemini\config\skills"
-    "Claude Code"      = Join-Path $UserHome ".claude\skills"
+    "Antigravity"                  = Join-Path $UserHome ".gemini\config\skills"
+    "Antigravity (Skills Manager)" = Join-Path $UserHome ".gemini\antigravity\skills"
+    "Claude Code"                  = Join-Path $UserHome ".claude\skills"
 }
 
 # 获取中央库中的有效技能目录列表
