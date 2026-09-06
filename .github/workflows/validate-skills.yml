@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'skills/**'
+      - 'scripts/validate-skills.py'
       - '.github/workflows/validate-skills.yml'
   pull_request:
     paths:
@@ -23,62 +24,4 @@ jobs:
 
       - name: Validate Skills Structure and Frontmatter
         run: |
-          python -c '
-          import os
-          import sys
-          import re
-
-          skills_dir = "skills"
-          if not os.path.exists(skills_dir):
-              print(f"Directory {skills_dir} not found!")
-              sys.exit(1)
-
-          errors = []
-          skill_dirs = [d for d in os.listdir(skills_dir) if os.path.isdir(os.path.join(skills_dir, d))]
-
-          print(f"🔍 Found {len(skill_dirs)} skills to validate in {skills_dir}/\n")
-
-          for skill_name in sorted(skill_dirs):
-              full_path = os.path.join(skills_dir, skill_name)
-              skill_md = os.path.join(full_path, "SKILL.md")
-
-              # 1. 检查 SKILL.md 是否存在
-              if not os.path.isfile(skill_md):
-                  errors.append(f"[{skill_name}] 缺少必需的核心定义文件 SKILL.md")
-                  continue
-
-              # 2. 读取并验证 Frontmatter
-              with open(skill_md, "r", encoding="utf-8") as f:
-                  content = f.read()
-
-              match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
-              if not match:
-                  errors.append(f"[{skill_name}] SKILL.md 头部缺少以 --- 包裹的标准 YAML Frontmatter")
-                  continue
-
-              fm = match.group(1)
-
-              name_match = re.search(r"^name:\s*[\"'\']?([a-zA-Z0-9_-]+)[\"'\']?\s*$", fm, re.MULTILINE)
-              desc_match = re.search(r"^description:\s*(.+)$", fm, re.MULTILINE)
-
-              if not name_match:
-                  errors.append(f"[{skill_name}] YAML Frontmatter 中缺少有效的 name 字段")
-              else:
-                  declared_name = name_match.group(1).lower()
-                  # 检查声明名称是否与目录名一致
-                  if declared_name != skill_name.lower():
-                      errors.append(f"[{skill_name}] 声明的 name ({declared_name}) 与目录名 ({skill_name}) 不一致")
-
-              if not desc_match or not desc_match.group(1).strip():
-                  errors.append(f"[{skill_name}] YAML Frontmatter 中缺少有效的 description 字段")
-
-              print(f"✓ Validated: {skill_name}")
-
-          if errors:
-              print("\n❌ 发现以下合规性校验错误:")
-              for err in errors:
-                  print(f"  - {err}")
-              sys.exit(1)
-
-          print("\n🎉 所有技能格式校验通过！零格式缺陷。")
-          '
+          python scripts/validate-skills.py skills
