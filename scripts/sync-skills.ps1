@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     跨 Agent 与跨机器统一技能分发脚本 (Windows NTFS Junction)
 .DESCRIPTION
