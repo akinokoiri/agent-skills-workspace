@@ -1,163 +1,135 @@
 # Agent Skills & MCP 统一管理中心 (SSOT)
 
-本仓库作为跨设备（3+ 台电脑）及多 Coding Agent（Antigravity、Antigravity IDE、Grok Build、ChatGPT/Codex、DeepSeek Harness、Claude Code 等）的技能 (Skills) 与 MCP Server 配置的单一真实来源 (Single Source of Truth, SSOT)。
+> **面向多设备（主机、Surface、笔记本、远程服务器）与多 Coding Agent 的中央技能仓库与极速分发中枢。**  
+> 核心哲学：**“确定性脚本在系统层干重活，绝不让 LLM 当数据搬运工” —— 极致节省 Token，100% 杜绝格式损坏与合并冲突。**
 
 ---
 
-## 1. 架构与工具链体系
+## 1. 架构总览与核心设计
 
 ```text
-               ┌──────────────────────────────────────────────────────────┐
-               │    GitHub 远程私有仓库 (SSOT 技能中心库)                     │
-               │    akinokoiri/agent-skills-workspace                     │
-               │    - skills/ (标准 SKILL.md 文件夹母本库)                  │
-               │    - mcp/ (通用 MCP 模板与密钥隔离规范)                    │
-               └────────────────────────────┬─────────────────────────────┘
-                                            │ git pull / push
-        ┌───────────────────────────────────┼───────────────────────────────────┐
-        ▼                                   ▼                                   ▼
-   [电脑 A: 主机]                      [电脑 B: 笔记本]                    [电脑 C: 办公机]
-  G:\agent-skills-workspace           G:\agent-skills-workspace           G:\agent-skills-workspace
-        │                                   │                                   │
-        │ scripts\sync-skills.ps1           │ scripts\sync-skills.ps1           │ scripts\sync-skills.ps1
-        ▼                                   ▼                                   ▼
-  ┌─────────────────────────────────────────────────────────────────────────────┐
-  │ 本地免提权 NTFS Junction (目录联接点)                                        │
-  ├─► ChatGPT / Codex:       ~/.codex/skills/                                   │
-  ├─► Grok / grokbuild:      ~/.grok/skills/                                    │
-  ├─► DeepSeek Harness:      ~/.dsh/skills/                                     │
-  ├─► Antigravity / Gemini:  ~/.gemini/config/skills/                           │
-  ├─► Claude Code:           ~/.claude/skills/                                  │
-  └─► GUI 控制台:            skills-manager 桌面端仪表盘实时纳管与启闭           │
-  └─────────────────────────────────────────────────────────────────────────────┘
+                           ┌─────────────────────────────────────────┐
+                           │    GitHub 远程中央库 (Single Source of Truth) │
+                           │       akinokoiri/agent-skills-workspace  │
+                           │  - skills/ (标准 SKILL.md 母本库)        │
+                           │  - .github/workflows/ (云端防错 CI 守门)  │
+                           └────────────────────┬────────────────────┘
+                                                │
+                 ┌──────────────────────────────┴──────────────────────────────┐
+       git pull / push (毫秒级系统流转)                               git pull / push
+                 │                                                             │
+      ┌──────────▼──────────┐                                       ┌──────────▼──────────┐
+      │   【主力电脑 / 主机】  │                                       │   【便携本 / Surface】│
+      │ G:\agent-skills-workspace                                   │ C:\...\agent-skills-workspace
+      │ (NTFS Junction 零拷贝)                                       │ (NTFS Junction 零拷贝)
+      └──────────┬──────────┘                                       └──────────┬──────────┘
+                 │                                                             │
+  ┌──────────────┴──────────────────────────────┐               ┌──────────────┴──────────────────────────────┐
+  ├─► ChatGPT / Codex:       ~/.codex/skills/   │               ├─► ChatGPT / Codex:       ~/.codex/skills/   │
+  ├─► Grok / grokbuild:      ~/.grok/skills/    │               ├─► Grok / grokbuild:      ~/.grok/skills/    │
+  ├─► DeepSeek Harness:      ~/.dsh/skills/     │               ├─► DeepSeek Harness:      ~/.dsh/skills/     │
+  ├─► Antigravity / Gemini:  ~/.gemini/skills/  │               ├─► Antigravity / Gemini:  ~/.gemini/skills/  │
+  ├─► Claude Code:           ~/.claude/skills/  │               ├─► Claude Code:           ~/.claude/skills/  │
+  └─► GUI: skills-manager 桌面端仪表盘实时纳管   │               └─► GUI: skills-manager 桌面端仪表盘实时纳管   │
+  └─────────────────────────────────────────────┘               └─────────────────────────────────────────────┘
 ```
 
-* **[skills-manager](https://github.com/xingkongliang/skills-manager)** (v1.36.2): 本地 GUI 桌面仪表盘与 CLI，管理中央技能库与 20+ 个 Coding Agent 的部署状态。
-* **[prpm](https://github.com/pr-pm/prpm)** (v2.1.39): CLI 包管理器与跨格式转译引擎（转译为 Cursor MDC、Claude Skills 等）。
-* **[sync-mcp](https://github.com/william-garden/sync-mcp)** (v0.1.5): MCP 配置一键跨 Agent 同步工具。
-* **Git + NTFS Junction**: 跨机器云端同步底座，本地免提权目录联接，彻底杜绝多版本碎片化。
+### 为什么这样设计？
+1. **单一真实源 (Single Source of Truth, SSOT)**：技能母本全部统一存放在 GitHub 仓库的 `skills/` 目录中。
+2. **NTFS Junction 本地零拷贝**：各个 Agent 目录并非复制副本，而是 Windows 原生**目录联接点 (Junction)**。只要中央库更新，所有 Agent 实时生效，**无需重启、无需重复同步、普通权限免提权**。
+3. **零 Token 损耗与防错原则 (Zero-Token Payload)**：绝对严禁让 AI Agent 把成百上千行的 Skill 代码/文档读入对话上下文来搬运。所有技能入库、校验、推送均由本地脚本毫秒级完成，Agent 仅需调用一条命令（消耗 < 100 Tokens）。
+4. **云端全自动守门 (GitHub Actions CI)**：内置 `validate-skills.yml` 自动化工作流。任何机器或网页端提交如果缺少 `SKILL.md` 或 YAML Frontmatter 格式不合规，CI 会立即阻断并报警，确保中央库 100% 纯净。
 
 ---
 
-## 2. 目录规范与文件清单
+## 2. 人类开发者使用指南 (Human Guide)
 
-```text
-agent-skills-workspace/
-├── skills/                     # 标准 Skill 母本目录（独立文件夹 + SKILL.md）
-│   ├── grilling/               # [Matt 官方最新] 深度设计树对齐与 Frontier 轮次面试
-│   ├── grill-me/               # [Matt 官方最新] 快捷触发 grilling 别名
-│   ├── grill-with-docs/        # [Matt 官方最新] 架构与 ADR 文档对齐版
-│   ├── handoff/                # [Matt 官方最新] 跨 Agent/跨会话无损上下文交接
-│   ├── writing-for-agents/     # [Matt 官方最新] 梯子模型与高预见性技能编写规范
-│   ├── writing-great-skills/   # [兼容别名] 转发至 writing-for-agents
-│   ├── teach/                  # [Matt 官方最新] 体系化技能教学与教案模板
-│   ├── project-cairn/          # [通用工程资产] 项目知识沉淀与防漂移架构
-│   ├── task-checkpoint/       # [通用工程资产] 任务断点快照与开工恢复
-│   └── systematic-debugging/   # [严谨排错流程] 假设驱动与根因取证系统排查
-├── mcp/                        # 通用 MCP Server 配置模板与映射
-│   ├── mcp-servers.json        # 通用 MCP 声明
-│   └── .env.example            # 敏感环境变量与 API 密钥模板（不提交真实 Key）
-├── scripts/
-│   └── sync-skills.ps1         # 跨 Agent 自动化 NTFS Junction 挂载与坏死链接清理脚本
-├── HANDOFF.md                  # 跨会话完整技术交接与实施档案
-└── README.md                   # 本说明文档
-```
+### 场景 1：在其他机器（如 Surface、出差电脑）发现了好用的 Skill，如何上传？
+> **核心解答**：**绝不需要回到主机再装！** 你在任何机器都可以随时上传同步。
 
----
+#### 途径 A：其他机器上也 Clone 了本仓库（最推荐）
+1. 在其他机器运行导入脚本，自动完成**格式校验、冲突检测、备份、本地挂载与 Git 远端推送**：
+   ```powershell
+   # 从本地某个 Agent 目录或临时目录导入，并一键推送到 GitHub
+   .\scripts\import-skill.ps1 -SourcePath "C:\path\to\new-skill" -Push
 
-## 3. 技能分层与准入规范 (Governance Rules)
+   # 或直接从某个外部开源 Git 仓库拉取收纳并推送
+   .\scripts\import-skill.ps1 -GitUrl "https://github.com/someone/cool-skill.git" -Push
+   ```
+2. **回到主机后**：只需敲一句一键同步命令：
+   ```powershell
+   .\scripts\pull-sync.ps1
+   ```
+   脚本会自动保护本地未提交内容、拉取最新代码，并自动为新技能在主机的各个 Agent 目录补齐 NTFS Junction 软链接。
 
-经充分审视与决策树对齐，本工作区严格遵守**三层治理原则**：
+#### 途径 B：其他机器没有工作区，但装有 Agent（如 Claude Code / Antigravity）
+无需手动操作 Git，直接对那台机器上的 Agent 说一句：
+> *“帮我把这个 skill 复制到我的 GitHub 仓库 `akinokoiri/agent-skills-workspace` 的 `skills/<skill-name>` 目录下并 push，不要在上下文中打印全文。”*
 
-1. **中央收录 (Global / Universal Skills)**：
-   * 仅收录高复用度的核心研发方法论、严谨排错流程、跨会话交接及深度对齐沟通工具（上述 10 大技能）。
-   * 必须符合标准文件夹形态：包含带 YAML frontmatter 的 `SKILL.md`，可包含可选的 `references/`、`assets/` 或脚本。
-2. **专有保留 (Agent-Specific Skills)**：
-   * **Antigravity**：独占的 25+ 个 GCP/BigQuery/Airflow 大数据技能保留在 `~/.gemini/config/skills/` 本地，不混入中央库。
-   * **Grok (grokbuild)**：专有的 `check-work`、`code-review`、`imagine` 等留在 Grok 本地。
-   * **DeepSeek Harness**：专有的角色扮演（RP）与模型插件留在 DSH 本地。
-3. **项目跟随 (Project-Bound Skills)**：
-   * 强绑定企业或业务环境的特定技能（如 `gpo_read`、`windows-update-activity`、`mac_data`、`floor_plans` 等）严格保存在对应项目代码库的 `.agents/skills/` 目录中，随具体业务 Git 仓库走，**严禁混入全局中央库，防污染全局 Prompt 上下文**。
+#### 途径 C：临时电脑 / 手机端 / 浏览器中直接发现
+直接打开 GitHub 网页版仓库，在 `skills/` 下点击 **Add file -> Upload files** 上传该技能目录。云端 CI 会自动进行合规性验证。
 
 ---
 
-## 4. 快速上手与多机部署 (Quick Start)
-
-### 4.1 新设备/老设备全自动一键配置 (`setup-device.ps1`)
-
-无论是在**全新电脑**（白纸一张）还是在**老旧电脑**（存在历史脏技能、零散副本或不同版本），只需运行一次全自动初始化脚本：
-
+### 场景 2：新电脑/老设备首次初始化与就绪
+只需在新机上克隆仓库并执行初始化脚本：
 ```powershell
-# 1. 克隆或拉取仓库
-git clone https://github.com/akinokoiri/agent-skills-workspace.git G:\agent-skills-workspace
-cd G:\agent-skills-workspace
-
-# 2. 一键执行环境就绪与全 Agent 同步（含技能与 GitHub MCP）
+git clone https://github.com/akinokoiri/agent-skills-workspace.git
+cd agent-skills-workspace
 powershell -ExecutionPolicy Bypass -File .\scripts\setup-device.ps1
 ```
-
-> **💡 如果你在使用 Antigravity 或 Codex 等 AI Agent**：
-> 你甚至不需要自己敲命令，只需对 AI 说：
-> **`“帮我拉取并运行 setup-device.ps1 初始化本机的 Skills 与 MCP 环境”`**，AI 即可在 10 秒内安全完成配置，消耗极少 Token。
-
-脚本全自动执行的保障逻辑：
-1. **环境检测**：检查 Git、Node.js、npx 等关键工具并友好提示；
-2. **安全防护（老设备兼容）**：检测目标 Agent 中的旧版本物理副本，**自动带时间戳备份**至 `backups/`，**绝对保留**老设备专有技能（如 `hotel-*`）；
-3. **免提权穿透**：通过 NTFS Junction 秒级挂载 10 大中央技能，兼容 Codex、Antigravity、Grok、DSH、Claude Code；
-4. **Antigravity 专有适配**：打通双轨路径（`~/.gemini/config/skills` 与 `~/.gemini/antigravity/skills`），自动生成 `~/.gemini/config/skills.json`，解决 `/` 快捷指令无提示问题；
-5. **统一 MCP 注入**：自动提取本机已有的 GitHub Token 或通过命令行参数一键注入 Antigravity 与 Codex；
-6. **Skills Manager GUI 对齐**：若检测到本机已安装 Skills Manager，自动对齐本地工作区指向。
-
-### 4.2 仅检查当前健康状态
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\setup-device.ps1 -StatusOnly
-```
-
-### 4.3 独立管理 MCP 配置 (`sync-mcp.ps1`)
-若后续需要更新 GitHub Access Token 或添加新 MCP：
-```powershell
-# 显式指定 Token 注入 Antigravity & Codex
-.\scripts\sync-mcp.ps1 -GitHubToken "ghp_xxxx"
-
-# 查看当前 MCP 接入状态
-.\scripts\sync-mcp.ps1 -Status
-```
-
-### 4.4 使用桌面 GUI 仪表盘
-已安装的 **`skills-manager`** 可直接在桌面快捷方式启动：
-* 可视化查看每个技能在各个 Agent 上的部署/激活状态；
-* 一键开启或关闭单个 Agent 对某个技能的感知；
-* 技能有更新时直接在此处刷新或搜索生态新技能。
+* 全自动检测 Git、Node.js 等环境；
+* 自动安全备份旧版本的物理冲突目录；
+* 自动为所有已安装的 Agent 建立 Junction 软链接；
+* 自动同步 Antigravity 索引与 GitHub MCP 接入。
 
 ---
 
-## 5. 日常维护与协同工作流
-
-* **修改现有技能**：在 `skills/<skill-name>/SKILL.md` 中编辑。由于各 Agent 均是 Junction 直连，**修改后本地所有 Agent 瞬间生效**，无需重启或重新挂载。
-* **添加新通用技能**：
-  1. 在 `skills/` 下新建技能目录与 `SKILL.md`；
-  2. 运行 `.\scripts\sync-skills.ps1` 将新技能挂载至所有 Agent；
-  3. 执行 `skills-manager skills adopt G:\agent-skills-workspace\skills` 让 GUI 刷新索引。
-* **多电脑同步推送**：
-  * **在修改机器**：
-    ```bash
-    git add .
-    git commit -m "feat: add or update skill"
-    git push origin main
-    ```
-  * **在其他电脑**：
-    ```bash
-    git pull origin main
-    ```
-    拉取完成后，底层文件更新会即刻同步穿透至所有 Agent，无需重复运行挂载脚本。
+### 场景 3：日常编辑与维护
+* **修改现有技能**：直接在 `skills/<skill-name>/SKILL.md` 中编辑保存即可，本机的所有 Agent 即刻感知新指令。
+* **推送修改**：`git commit -am "feat: update prompt" && git push`。
+* **拉取更新**：`.\scripts\pull-sync.ps1`。
 
 ---
 
-## 6. 常见问题 (FAQ & Troubleshooting)
+## 3. AI Agent 操作手册 (Agent Operating Guide)
 
-* **Q: 为什么使用 NTFS Junction 而不是普通软链接 (Symlink)？**
-  * **A**: 在 Windows 上，创建符号链接（`mklink /D` 或 `New-Item -ItemType SymbolicLink`）默认需要管理员权限或启用开发者模式；而 **NTFS Junction（目录联接点）是 Windows 原生文件系统特性，普通用户权限即可秒级创建**，且绝大多数跨平台运行时（Node.js, Python, Rust, Go）均将其透明视为普通目录，兼容性最佳。
-* **Q: 为什么 Codex 里不能留旧的软链接？**
-  * **A**: 当软链接指向的源目录（例如百度网盘中的历史项目）被重命名或移除后，会成为“悬空坏死链接”（Dangling Junction），导致 Agent 扫描 skills 目录时抛出底层 IO 异常。脚本已内置坏链自动侦测与清理机制。
-* **Q: 敏感 API Key 如何处理？**
-  * **A**: 中央库通过 `.gitignore` 严格忽略了 `.env`、`*.local` 与 `backups/`。MCP 相关密钥仅在 `mcp/.env.example` 维护占位模板，真实密钥通过本机系统环境变量或本地 `.env` 隔离，确保私有 Git 仓库纯净安全。
+如果你是负责协助用户操作本仓库的 AI Agent（Antigravity、Claude Code、Codex、Grok 等），请**严格遵守 [AGENTS.md](file:///g:/agent-skills-workspace/AGENTS.md) 中的三大铁律**：
+
+1. **绝对禁止数据搬运**：严禁调用读取文件工具把整个技能目录的内容吐在对话上下文里。执行收纳必须使用确定性脚本。
+2. **严格守门**：所有新技能必须包含标准的 YAML Frontmatter（包含非空的 `name:` 与 `description:`）。
+3. **命令速查映射**：
+
+| 用户意图 | Agent 应调用的终端命令 |
+| :--- | :--- |
+| **“帮我把这个新 skill 加进库里”** | `powershell -File .\scripts\import-skill.ps1 -SourcePath "<path>" -Push` |
+| **“更新已有技能并覆盖”** | `powershell -File .\scripts\import-skill.ps1 -SourcePath "<path>" -Force -Push` |
+| **“从远程 Git 导入技能”** | `powershell -File .\scripts\import-skill.ps1 -GitUrl "<url>" -Push` |
+| **“拉取最新技能 / 同步更新”** | `powershell -File .\scripts\pull-sync.ps1` |
+| **“查看当前各 Agent 技能挂载状态”** | `powershell -File .\scripts\sync-skills.ps1 -Status` |
+| **“修复损坏链接与挂载”** | `powershell -File .\scripts\sync-skills.ps1 -Force` |
+
+---
+
+## 4. 自动化脚本清单与功能速查
+
+| 脚本路径 | 核心功能 | 典型使用场景 |
+| :--- | :--- | :--- |
+| **`scripts/import-skill.ps1`** | **零 Token 技能导入与上传**<br>含 SKILL.md 格式校验、YAML 审查、防重名冲突备份、自动 Rebase Push。 | 在任何机器收纳新发现的技能并一键发布到 GitHub。 |
+| **`scripts/pull-sync.ps1`** | **一键拉取与自动自愈**<br>内置本地脏工作区 Stash 保护、远端更新拉取，并自动为新技能建立 Junction 挂载。 | 从机提交后，主机一键对齐最新状态。 |
+| **`scripts/sync-skills.ps1`** | **跨 Agent NTFS Junction 挂载引擎**<br>自动清理坏死链接，免提权秒级打通 5+ 大主流 Agent。 | 查看技能挂载状态、清理历史死链接。 |
+| **`scripts/setup-device.ps1`** | **新机全自动就绪工具**<br>涵盖依赖检测、历史版本安全备份、Agent 挂载、MCP 注入与 GUI 联动。 | 任何新电脑或刚重装系统的电脑首发配置。 |
+| **`scripts/sync-mcp.ps1`** | **跨 Agent MCP 服务配置注入**<br>提取 GitHub PAT 并注入 Antigravity 及 Codex 配置文件。 | 更新 MCP Token 或管理 MCP Server。 |
+
+---
+
+## 5. 常见问题 (FAQ)
+
+#### Q1: 为什么使用 NTFS Junction，而不是直接用 Git 软链接 (Symlink)？
+Windows 上创建符号链接（Symlink）默认需要管理员提权或开启开发者模式；而 **NTFS Junction（目录联接点）是 Windows 原生文件系统特性，普通用户权限即可秒级建立**，且对 Node.js、Python、Go、Rust 跨平台运行时 100% 透明兼容。
+
+#### Q2: 如果在其他机器提交了同名技能，会覆盖主机的改动吗？
+不会。`import-skill.ps1` 内置了版本冲突检测，若目标已存在同名技能，不加 `-Force` 会直接安全报警拒绝执行；加了 `-Force` 也会先在 `backups/<timestamp>/` 创建物理快照备份。
+
+#### Q3: 为什么说这个架构“极致节省 Token”？
+传统的 Agent 协作方式是让模型读取整篇几千行的文档并重新生成，一次流转消耗数万 Tokens，且模型可能会发生代码转义损毁。本仓库全部通过操作系统级命令与 Git 底层管道流转，**LLM 只充当决策调度者，不充当数据搬运工**，单次操作 Token 消耗从上万降至不足 100。
