@@ -1,4 +1,4 @@
-﻿# Handoff: 跨设备与多 Coding Agent 技能/MCP 统一管理系统
+# Handoff: 跨设备与多 Coding Agent 技能/MCP 统一管理系统
 
 本文档记录当前统一管理系统的最新实施状态、决策共识、核心资产清单与后续演进路线，便于未来会话或跨设备协同随时无缝接续。
 
@@ -94,6 +94,8 @@
 
 未来接手本工作区的 Agent 可推进：
 
-1. **提交中央库变更**：本次已在中央库就绪 `scripts/sync-skills.ps1` 与 `skills/progress-brief/`，在主分支执行 `git add . && git commit -m "feat: add progress-brief and target filters" && git push`。
-2. **多机规则自动化部署**：目前 Antigravity 与 Grok 的全局 `AGENTS.md` 保存在机器本地配置目录下（`~/.gemini/config` 与 `~/.grok/rules`），可考虑在 `sync-skills.ps1` 中加入全局规则文件的辅助联接/复制功能，换设备后一键到位。
-3. **MCP 跨端同步联动**：继续依托 `sync-mcp` 将中央模板自动化映射给各 Agent 的 MCP 配置。
+1. **已完成：全局行为准则与意外转向阻断法则**：
+   - 已在中央库 `rules/AGENTS.md` 建立基准，并在准则中硬化了【意外转向阻断法则 (Pivot Interruption Rule)】。
+   - `scripts/sync-skills.ps1` 已内置自动分发逻辑，在执行同步时自动将中央规则拷贝至 Antigravity (`~/.gemini/config/rules`) 与 Grok (`~/.grok/rules`)，实现跨机器规则一致性。
+2. **MCP 跨端同步联动**：继续依托 `sync-mcp` 将中央模板自动化映射给各 Agent 的 MCP 配置。
+3. **远端私有库 Git 凭据自动化**：针对 Surface Pro 在无界面 SSH 会话中无法调用 `wincredman` 的问题，可评估在 Surface 上配置专属只读 Personal Access Token (PAT) 或专用部署 SSH Key。
