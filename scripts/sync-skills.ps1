@@ -205,6 +205,34 @@ foreach ($agentName in $AgentTargets.Keys | Sort-Object) {
     }
 }
 
+# 5. 配置 Antigravity 全局配置与工作区规范
+Write-Host "`n------------------------------------------------------------" -ForegroundColor DarkGray
+Write-Host "🔧 正在配置 Antigravity 全局与工作区规范..." -ForegroundColor Yellow
+
+# A. 配置 ~/.gemini/config/skills.json (官方声明外部技能库)
+$GeminiConfigDir = Join-Path $UserHome ".gemini\config"
+if (!(Test-Path $GeminiConfigDir)) { New-Item -ItemType Directory -Path $GeminiConfigDir -Force | Out-Null }
+$SkillsJsonPath = Join-Path $GeminiConfigDir "skills.json"
+$formattedCentralPath = $CentralSkillsDir -replace '\\', '/'
+$skillsJsonObj = @{
+    entries = @(
+        @{ path = $formattedCentralPath }
+    )
+}
+$skillsJsonObj | ConvertTo-Json -Depth 5 | Set-Content -Path $SkillsJsonPath -Encoding utf8
+Write-Host "   ✓ 已生成 Antigravity 全局技能索引: $SkillsJsonPath" -ForegroundColor Green
+
+# B. 确保当前工作区规范 .agents/skills 联接
+$WorkspaceAgentsDir = Join-Path $WorkspaceRoot ".agents"
+if (!(Test-Path $WorkspaceAgentsDir)) { New-Item -ItemType Directory -Path $WorkspaceAgentsDir -Force | Out-Null }
+$WorkspaceAgentsSkills = Join-Path $WorkspaceAgentsDir "skills"
+if (!(Test-Path $WorkspaceAgentsSkills)) {
+    New-Item -ItemType Junction -Path $WorkspaceAgentsSkills -Target $CentralSkillsDir | Out-Null
+    Write-Host "   ✓ 已挂载工作区规范联接: $WorkspaceAgentsSkills -> $CentralSkillsDir" -ForegroundColor Green
+} else {
+    Write-Host "   ✓ 工作区规范联接正常: $WorkspaceAgentsSkills" -ForegroundColor Green
+}
+
 Write-Host "`n============================================================" -ForegroundColor Cyan
-Write-Host " 🎉 所有目标 Agent 的技能挂载已处理完毕！" -ForegroundColor Green
+Write-Host " 🎉 所有目标 Agent 的技能挂载与环境配置已处理完毕！" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Cyan
