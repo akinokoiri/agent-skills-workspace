@@ -1,7 +1,6 @@
 ---
 name: task-checkpoint
 description: 收尾保存、开工恢复"进行中任务"状态。换设备、换会话、下班前调用保存；开工时调用恢复。
-disable-model-invocation: true
 ---
 
 # Task Checkpoint
