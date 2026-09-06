@@ -1,0 +1,13 @@
+version: 0.1
+project:
+  name: "agent-skills-workspace"
+  summary: "跨设备与多 Coding Agent 的统一技能与 MCP 规范管理中心 (SSOT)"
+cairn:
+  knowledge_dir: "cairn"
+  skill_spec_date: "2026-08-07"
+  git_policy: "track"
+  language: "zh"
+graduation:
+  provider: none
+history:
+  migration_mode: "start_fresh"
