@@ -23,6 +23,7 @@ Thumbs.db
 *.tmp
 *.log
 
-# Build outputs
+# Build outputs and backups
 dist/
 build/
+backups/

@@ -1,0 +1,7 @@
+interface:
+  display_name: "任务检查点"
+  short_description: "收尾保存、开工恢复进行中任务状态，随同步目录跨设备携带"
+  default_prompt: "使用 $task-checkpoint 收尾，保存当前任务状态。"
+
+policy:
+  allow_implicit_invocation: false
