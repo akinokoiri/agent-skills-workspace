@@ -83,36 +83,48 @@ agent-skills-workspace/
 
 ## 4. 快速上手与多机部署 (Quick Start)
 
-### 4.1 在新电脑 (电脑 B / 电脑 C) 上配置
+### 4.1 新设备/老设备全自动一键配置 (`setup-device.ps1`)
 
-在新机器上只需执行以下两步：
+无论是在**全新电脑**（白纸一张）还是在**老旧电脑**（存在历史脏技能、零散副本或不同版本），只需运行一次全自动初始化脚本：
 
 ```powershell
-# 1. 克隆私有仓库
+# 1. 克隆或拉取仓库
 git clone https://github.com/akinokoiri/agent-skills-workspace.git G:\agent-skills-workspace
-
-# 2. 全局安装辅助 CLI (需 Node.js 18+)
-npm install -g prpm sync-mcp
-
-# 3. 运行一键挂载与健康检查
 cd G:\agent-skills-workspace
-.\scripts\sync-skills.ps1
+
+# 2. 一键执行环境就绪与全 Agent 同步（含技能与 GitHub MCP）
+powershell -ExecutionPolicy Bypass -File .\scripts\setup-device.ps1
 ```
 
-脚本执行时将自动完成：
-* 扫描并彻底清理目标 Agent 目录中指向已失效路径的坏死链接；
-* 若目标存在旧版冲突的物理副本，安全归档至 `backups/<timestamp>/`；
-* 为本机已检测到的所有 Agent（Codex、Grok、DSH、Antigravity、Claude Code）免提权创建指向中央库的 NTFS Junction。
+> **💡 如果你在使用 Antigravity 或 Codex 等 AI Agent**：
+> 你甚至不需要自己敲命令，只需对 AI 说：
+> **`“帮我拉取并运行 setup-device.ps1 初始化本机的 Skills 与 MCP 环境”`**，AI 即可在 10 秒内安全完成配置，消耗极少 Token。
 
-### 4.2 检查挂载状态
-随时在终端运行：
+脚本全自动执行的保障逻辑：
+1. **环境检测**：检查 Git、Node.js、npx 等关键工具并友好提示；
+2. **安全防护（老设备兼容）**：检测目标 Agent 中的旧版本物理副本，**自动带时间戳备份**至 `backups/`，**绝对保留**老设备专有技能（如 `hotel-*`）；
+3. **免提权穿透**：通过 NTFS Junction 秒级挂载 10 大中央技能，兼容 Codex、Antigravity、Grok、DSH、Claude Code；
+4. **Antigravity 专有适配**：打通双轨路径（`~/.gemini/config/skills` 与 `~/.gemini/antigravity/skills`），自动生成 `~/.gemini/config/skills.json`，解决 `/` 快捷指令无提示问题；
+5. **统一 MCP 注入**：自动提取本机已有的 GitHub Token 或通过命令行参数一键注入 Antigravity 与 Codex；
+6. **Skills Manager GUI 对齐**：若检测到本机已安装 Skills Manager，自动对齐本地工作区指向。
+
+### 4.2 仅检查当前健康状态
 ```powershell
-.\scripts\sync-skills.ps1 -Status
+powershell -ExecutionPolicy Bypass -File .\scripts\setup-device.ps1 -StatusOnly
 ```
-即可实时列出各 Agent 的联接有效性与健康度。
 
-### 4.3 使用桌面 GUI 仪表盘
-已安装的 **`skills-manager`** 可直接在 Windows 开始菜单启动：
+### 4.3 独立管理 MCP 配置 (`sync-mcp.ps1`)
+若后续需要更新 GitHub Access Token 或添加新 MCP：
+```powershell
+# 显式指定 Token 注入 Antigravity & Codex
+.\scripts\sync-mcp.ps1 -GitHubToken "ghp_xxxx"
+
+# 查看当前 MCP 接入状态
+.\scripts\sync-mcp.ps1 -Status
+```
+
+### 4.4 使用桌面 GUI 仪表盘
+已安装的 **`skills-manager`** 可直接在桌面快捷方式启动：
 * 可视化查看每个技能在各个 Agent 上的部署/激活状态；
 * 一键开启或关闭单个 Agent 对某个技能的感知；
 * 技能有更新时直接在此处刷新或搜索生态新技能。
