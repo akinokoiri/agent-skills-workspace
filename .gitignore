@@ -1,4 +1,4 @@
-# Sensitive credentials and local environments
+﻿# Sensitive credentials and local environments
 .env
 .env.*
 !.env.example
@@ -28,4 +28,11 @@ dist/
 build/
 backups/
 .agents/
-
+# Skills Manager local database, locks & runtime caches (machine-specific)
+skills-manager.db*
+.skills-manager.lock
+.secret.key
+.cache/
+scenarios/
+logs/
+skills/.skills-manager/

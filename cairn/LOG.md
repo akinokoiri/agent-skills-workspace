@@ -1,6 +1,14 @@
-# Project Cairn Log
+﻿# Project Cairn Log
 
 This file records substantive progress in reverse-chronological order — newest entry at the top, right below this line. Keep each entry short — summary and pointer only; conclusions settle into `cairn/<topic>.md`.
+
+## 2026-09-07 · 便携工作机部署实战、Junction 免交互安全解绑与 Codex 编码修复
+
+- 完成便携工作机（用户名 `秋野恋理`）跨 Agent SSOT 中央库首次接入与全环境就绪。
+- 根因排查与攻克 PowerShell 5.1 下 Junction 删除引发的隐藏交互弹窗，引入 .NET 原生 `Directory::Delete` 实现零交互解绑。
+- 修复 `sync-mcp.ps1` 在 PowerShell 5.1 下默认 ANSI 导致中文路径乱码、以及正则跨行断言引发 Codex `config.toml` 重复表闪退问题。
+- 部署并打通 `skills-manager` GUI（v1.36.2）与 CLI，批量完成 10 大核心公共技能的 Default Preset 纳管与未安装 Agent 过滤，与主力机视图对齐。
+- 详情与完整知识沉淀：参见 [cairn/windows-environment-compatibility-and-agent-onboarding.md](file:///D:/agent-skills-workspace/cairn/windows-environment-compatibility-and-agent-onboarding.md)。
 
 ## 2026-09-06 · 跨机技能同步架构优化与零 Token 规范落地
 

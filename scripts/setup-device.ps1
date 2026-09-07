@@ -135,6 +135,40 @@ if ($foundSmCli) {
             $repoCfgJson = $repoCfg | ConvertTo-Json -Depth 3
             [System.IO.File]::WriteAllText($repoCfgFile, $repoCfgJson, $utf8NoBom)
             Write-Host "  ✓ 已同步 Skills Manager 本地工作区指向: $WorkspaceRoot" -ForegroundColor Green
+
+            # 自动初始化 Skills Manager 技能库与 Default 预设 (针对全新安装的机器)
+            try {
+                $repoStatusJson = & $foundSmCli repo status --json 2>$null
+                if ($repoStatusJson) {
+                    $statusObj = $repoStatusJson | ConvertFrom-Json
+                    if ($statusObj.skill_count -eq 0) {
+                        Write-Host "  📦 检测到 Skills Manager 技能库为空，正在自动批量纳管中央技能..." -ForegroundColor Yellow
+                        $tempDir = Join-Path $WorkspaceRoot ".cache\temp-skills"
+                        if (!(Test-Path $tempDir)) { New-Item -ItemType Directory -Path $tempDir -Force | Out-Null }
+
+                        $centralPublicSkills = Get-ChildItem -Path (Join-Path $WorkspaceRoot "skills") -Directory | Where-Object {
+                            $_.Name -ne "progress-brief" -and (Test-Path (Join-Path $_.FullName "SKILL.md"))
+                        }
+
+                        foreach ($skillItem in $centralPublicSkills) {
+                            $sName = $skillItem.Name
+                            $sTmp = Join-Path $tempDir $sName
+                            if (Test-Path $sTmp) { Remove-Item -Path $sTmp -Recurse -Force }
+                            Copy-Item -Path $skillItem.FullName -Destination $sTmp -Recurse -Force
+                            & $foundSmCli skills install --local $sTmp --sync | Out-Null
+                        }
+                        if (Test-Path $tempDir) { Remove-Item -Path $tempDir -Recurse -Force }
+
+                        # 自动关停未安装的 Agent，与主力机视图对齐
+                        @("github_copilot", "gemini_cli", "workbuddy") | ForEach-Object {
+                            & $foundSmCli agents disable $_ | Out-Null
+                        }
+                        Write-Host "  ✓ 已自动完成 Skills Manager 初始纳管与 Agent 状态对齐！" -ForegroundColor Green
+                    }
+                }
+            } catch {
+                Write-Host "  ⚠️ 初始化 Skills Manager 技能列表遇到非致命提示: $_" -ForegroundColor DarkGray
+            }
         } catch {
             Write-Host "  ⚠️ 同步 Skills Manager 配置遇到警告: $_" -ForegroundColor DarkYellow
         }
