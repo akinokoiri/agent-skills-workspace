@@ -171,23 +171,27 @@ GITHUB_PERSONAL_ACCESS_TOKEN = "$ResolvedToken"
 "@
 
     if (Test-Path $CodexConfigFile) {
-        $codexContent = Get-Content $CodexConfigFile -Raw
+        $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+        $codexContent = [System.IO.File]::ReadAllText($CodexConfigFile, $utf8NoBom)
         if ($codexContent -match '\[mcp_servers\.github\]') {
-            # 已经存在 github 配置，更新 token
+            # 已经存在 github 配置，清理完整的 github 及其所有子表块并更新
+            $githubBlockPattern = '(?ms)\[mcp_servers\.github\](?:.(?!\r?\n\[(?!mcp_servers\.github)))*.'
             $codexContent = [regex]::Replace(
                 $codexContent,
-                '(?ms)\[mcp_servers\.github\].*?(?=\n\[|\z)',
-                $codexGithubToml.Trim() + "`n"
+                $githubBlockPattern,
+                $codexGithubToml.Trim()
             )
-            [System.IO.File]::WriteAllText($CodexConfigFile, $codexContent, [System.Text.Encoding]::UTF8)
+            [System.IO.File]::WriteAllText($CodexConfigFile, $codexContent, $utf8NoBom)
             Write-Host "   ✓ 已更新 Codex MCP 配置中的 GitHub 服务: $CodexConfigFile" -ForegroundColor Green
         } else {
             # 追加到文件尾部
-            [System.IO.File]::AppendAllText($CodexConfigFile, "`n" + $codexGithubToml, [System.Text.Encoding]::UTF8)
+            $newCodexContent = $codexContent.TrimEnd() + "`n" + $codexGithubToml.Trim() + "`n"
+            [System.IO.File]::WriteAllText($CodexConfigFile, $newCodexContent, $utf8NoBom)
             Write-Host "   ✓ 已追加 GitHub MCP 服务到 Codex: $CodexConfigFile" -ForegroundColor Green
         }
     } else {
-        [System.IO.File]::WriteAllText($CodexConfigFile, $codexGithubToml, [System.Text.Encoding]::UTF8)
+        $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+        [System.IO.File]::WriteAllText($CodexConfigFile, $codexGithubToml.Trim() + "`n", $utf8NoBom)
         Write-Host "   ✓ 已创建 Codex 基础配置并注入 GitHub MCP: $CodexConfigFile" -ForegroundColor Green
     }
 }
