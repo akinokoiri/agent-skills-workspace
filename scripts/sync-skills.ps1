@@ -53,6 +53,17 @@ Write-Host " 发现中央技能: $($CentralSkills.Count) 个 ($($CentralSkills.N
 Write-Host "============================================================" -ForegroundColor Cyan
 
 # 辅助函数: 检查路径是否为坏死链接
+# 辅助函数: 安全解除 Junction 或删除文件，避免交互式递归确认与误伤母本
+function Remove-ItemSafe($Path) {
+    if (Test-Path -LiteralPath $Path) {
+        $item = Get-Item -LiteralPath $Path -Force
+        if ($item.LinkType -in @("SymbolicLink", "Junction")) {
+            [System.IO.Directory]::Delete($Path, $false)
+        } else {
+            Remove-Item -LiteralPath $Path -Force -Recurse
+        }
+    }
+}
 function Test-BrokenLink($Path) {
     if (!(Test-Path $Path)) { return $false }
     $item = Get-Item -Path $Path -Force
@@ -141,7 +152,7 @@ foreach ($agentName in $AgentTargets.Keys | Sort-Object) {
                     if ($DryRun) {
                         Write-Host "      [DryRun] 将删除坏死链接: $($item.FullName)" -ForegroundColor Magenta
                     } else {
-                        Remove-Item -Path $item.FullName -Force
+                        Remove-ItemSafe $item.FullName
                         Write-Host "      ✓ 已清理坏死链接。" -ForegroundColor Green
                     }
                 }
@@ -152,7 +163,7 @@ foreach ($agentName in $AgentTargets.Keys | Sort-Object) {
                 if ($DryRun) {
                     Write-Host "      [DryRun] 将删除残留链接: $($item.FullName)" -ForegroundColor Magenta
                 } else {
-                    Remove-Item -Path $item.FullName -Force
+                    Remove-ItemSafe $item.FullName
                     Write-Host "      ✓ 已删除残留链接。" -ForegroundColor Green
                 }
             }
@@ -176,7 +187,7 @@ foreach ($agentName in $AgentTargets.Keys | Sort-Object) {
                 if ($DryRun) {
                     Write-Host "      [DryRun] 将删除排除残留: $destPath" -ForegroundColor Magenta
                 } else {
-                    Remove-Item -Path $destPath -Force -Recurse
+                    Remove-ItemSafe $destPath
                     Write-Host "      ✓ 已清理排除残留。" -ForegroundColor Green
                 }
             }
@@ -198,7 +209,7 @@ foreach ($agentName in $AgentTargets.Keys | Sort-Object) {
                     if ($DryRun) {
                         Write-Host "      [DryRun] 将重新建立联接指向: $sourcePath" -ForegroundColor Magenta
                     } else {
-                        Remove-Item -Path $destPath -Force
+                        Remove-ItemSafe $destPath
                         New-Item -ItemType Junction -Path $destPath -Target $sourcePath | Out-Null
                         Write-Host "      ✓ 已重定向联接。" -ForegroundColor Green
                     }
