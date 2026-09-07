@@ -1,6 +1,12 @@
-﻿# Project Cairn Log
+# Project Cairn Log
 
 This file records substantive progress in reverse-chronological order — newest entry at the top, right below this line. Keep each entry short — summary and pointer only; conclusions settle into `cairn/<topic>.md`.
+
+## 2026-09-07 · pull-sync.ps1 联动 Skills Manager 与业务专属技能随行化
+
+- 完成 `scripts/pull-sync.ps1` 自动化升级：拉取技能并挂载后，自动调用 `skills-manager-cli skills sync`，打通 CLI 与 GUI 状态同步。
+- 架构优化落地：将酒店直连诊断（`hotel-pc-direct-diagnostics`）与 NAS 控制台（`qnap-nas-console`）完成项目随行工程化改造，源文件迁入对应工程的 `.agents/skills/`，通过百度同步盘实现双机自动同步，全局 Agent 目录通过 Junction 软链穿透，彻底解耦通用公共库与业务专用库。
+- 详情与完整知识沉淀：参见 [cairn/windows-environment-compatibility-and-agent-onboarding.md](file:///D:/agent-skills-workspace/cairn/windows-environment-compatibility-and-agent-onboarding.md)。
 
 ## 2026-09-07 · 便携工作机部署实战、Junction 免交互安全解绑与 Codex 编码修复
 

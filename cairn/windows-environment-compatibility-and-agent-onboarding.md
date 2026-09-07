@@ -59,3 +59,17 @@ authoring_mode: ai_generated
 - **现象**：Codex 启动瞬间崩溃，日志或手动解析报 Duplicate Table。
 - **根因**：TOML 不允许同名表头（如多个 `[mcp_servers.github.env]`）。旧脚本正则未将子表一并包含进替换区间。
 - **解法**：在正则中精准划分块边界，严格保证每个服务及其子环境变量块唯一。
+## 四、架构深化：业务专属技能与通用公共技能分离
+
+在跨设备管理实践中，技能天然分为两类：
+1. **通用公共技能 (Global SSOT)**：
+   - 特点：跨项目通用（如 `systematic-debugging`、`project-cairn`、`teach` 等），存放于本中央库 `agent-skills-workspace/skills`。
+   - 机制：通过 Git 仓库多端同步，并通过 `sync-skills.ps1` 以 NTFS Junction 挂载到所有全局 Agent 目录。
+2. **业务专属技能 (Project-Bound Skills)**：
+   - 特点：与特定项目源码强绑定（如酒店直连诊断 `hotel-pc-direct-diagnostics`、NAS 控制台 `qnap-nas-console`），离开对应工作区没有独立运行意义。
+   - 机制：**随行工程化**。放置在业务项目根目录的 `.agents/skills/<skill-name>/`，随业务工程（如百度同步盘/项目 Git 仓库）版本化与跨端同步；同时在项目内创建 `.gemini/skills` 挂载点，并在全局 Agent 中软链接挂载，实现全局与项目局部访问零割裂。
+
+## 五、联动机制：pull-sync.ps1 与 Skills Manager 双向打通
+
+- 在 `scripts/pull-sync.ps1` 中加入第 4 步：检测并调用 `skills-manager-cli skills sync`。
+- 无论开发者在终端使用命令行 `pull-sync.ps1`，还是后续打开 Skills Manager 桌面端 GUI，两者的预设、开关和可用技能状态始终保持 100% 实时一致。

@@ -7,6 +7,7 @@
       2. 执行安全 rebase 拉取 (git pull --rebase origin main)
       3. 恢复本地暂存更改 (git stash pop)
       4. 自动调用 sync-skills.ps1，为新下载的技能自动建立 NTFS Junction 挂载并清理坏链
+      5. 自动联动 Skills Manager CLI 刷新 GUI 状态与预设
 .PARAMETER NoSync
     仅拉取 Git 代码，不触发本地 Agent 挂载。
 .PARAMETER Status
@@ -41,16 +42,16 @@ try {
     $stashed = $false
 
     if ($hasLocalChanges) {
-        Write-Host "`n[1/3] 检测到本地存在未提交修改，正在临时暂存 (git stash)..." -ForegroundColor Yellow
+        Write-Host "`n[1/4] 检测到本地存在未提交修改，正在临时暂存 (git stash)..." -ForegroundColor Yellow
         git stash save "auto-stash-pull-sync-$(Get-Date -Format 'yyyyMMdd-HHmmss')" | Out-Null
         $stashed = $true
         Write-Host "  ✓ 本地工作区已暂存保护。" -ForegroundColor Green
     } else {
-        Write-Host "`n[1/3] 本地工作区干净，无需暂存。" -ForegroundColor Gray
+        Write-Host "`n[1/4] 本地工作区干净，无需暂存。" -ForegroundColor Gray
     }
 
     # 2. 拉取远端更新
-    Write-Host "`n[2/3] 从 GitHub 拉取最新技能 (git pull --rebase origin main)..." -ForegroundColor Yellow
+    Write-Host "`n[2/4] 从 GitHub 拉取最新技能 (git pull --rebase origin main)..." -ForegroundColor Yellow
     git pull --rebase origin main
 
     if ($stashed) {
@@ -61,7 +62,7 @@ try {
 
     # 3. 自动挂载各 Agent 目录
     if (!$NoSync) {
-        Write-Host "`n[3/3] 自动更新各 Agent 挂载点 (sync-skills.ps1)..." -ForegroundColor Yellow
+        Write-Host "`n[3/4] 自动更新各 Agent 挂载点 (sync-skills.ps1)..." -ForegroundColor Yellow
         if (Test-Path $SyncScript) {
             if ($Status) {
                 & $SyncScript -Status
@@ -70,7 +71,35 @@ try {
             }
         }
     } else {
-        Write-Host "`n[3/3] 跳过本地挂载刷新 (-NoSync)" -ForegroundColor Gray
+        Write-Host "`n[3/4] 跳过本地挂载刷新 (-NoSync)" -ForegroundColor Gray
+    }
+
+    # 4. 联动刷新 Skills Manager GUI 预设与状态 (若已安装)
+    $smCli = Get-Command "skills-manager-cli" -ErrorAction SilentlyContinue
+    $smPath = $null
+    if (!$smCli) {
+        $candidateSmPaths = @(
+            "$env:LOCALAPPDATA\skills-manager\skills-manager-cli.exe",
+            "$env:LOCALAPPDATA\Programs\skills-manager\skills-manager-cli.exe"
+        )
+        foreach ($cand in $candidateSmPaths) {
+            if (Test-Path $cand) {
+                $smPath = $cand
+                break
+            }
+        }
+    } else {
+        $smPath = $smCli.Source
+    }
+
+    if ($smPath) {
+        Write-Host "`n[4/4] 联动刷新 Skills Manager GUI 预设与状态..." -ForegroundColor Yellow
+        try {
+            & $smPath skills sync | Out-Null
+            Write-Host "  ✓ Skills Manager 桌面端预设已自动同步就绪。" -ForegroundColor Green
+        } catch {
+            Write-Host "  ⚠️ 联动 Skills Manager 提示: $_" -ForegroundColor DarkGray
+        }
     }
 
     Write-Host "`n============================================================" -ForegroundColor Cyan
