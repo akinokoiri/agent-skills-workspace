@@ -106,6 +106,7 @@ if (Test-Path $syncMcpScript) {
 Write-Host "`n[4/5] 检查 Skills Manager 兼容性..." -ForegroundColor Yellow
 
 $smCliPaths = @(
+    "$env:LOCALAPPDATA\skills-manager\skills-manager-cli.exe",
     "C:\Users\$env:USERNAME\AppData\Local\Programs\skills-manager\skills-manager-cli.exe",
     "$env:LOCALAPPDATA\Programs\skills-manager\skills-manager-cli.exe"
 )
