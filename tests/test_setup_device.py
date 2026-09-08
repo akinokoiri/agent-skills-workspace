@@ -13,7 +13,8 @@ PS = Path(os.environ.get('SystemRoot', r'C:\Windows')) / 'System32/WindowsPowerS
 class SetupDeviceTests(unittest.TestCase):
     def run_case(self, arguments=(), child_exit=0):
         with tempfile.TemporaryDirectory(prefix='skill-setup-test-') as temp:
-            root = Path(temp)
+            # PowerShell expands 8.3 TEMP aliases when it sets PSScriptRoot.
+            root = Path(temp).resolve()
             (root / 'setup-device.ps1').write_bytes(SOURCE.read_bytes())
             (root / 'sync-skills.ps1').write_text(
                 "param([switch]$Status,[switch]$DryRun,[switch]$Force,[string]$UserProfilePath)\n"

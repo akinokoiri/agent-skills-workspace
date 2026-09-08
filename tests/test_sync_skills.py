@@ -68,13 +68,15 @@ def configure_runtime(powershell=None, sandbox=None):
     if parent is None:
         temporary_parent = Path(tempfile.gettempdir()).absolute()
         assert_physical_ancestors(temporary_parent)
-        SANDBOX = Path(tempfile.mkdtemp(prefix="sync-skills-discovery-", dir=temporary_parent))
+        temporary_parent = temporary_parent.resolve()
+        SANDBOX = Path(tempfile.mkdtemp(prefix="sync-skills-discovery-", dir=temporary_parent)).resolve()
     else:
         SANDBOX = Path(parent).absolute()
         if SANDBOX.exists():
             raise ValueError("Use a fresh sandbox root; existing test runs must not be reused")
         assert_physical_ancestors(SANDBOX.parent)
         SANDBOX.mkdir(parents=True)
+        SANDBOX = SANDBOX.resolve()
 
 
 def write_evidence(result=None):
@@ -111,6 +113,8 @@ class Fixture:
     def __init__(self):
         self.base = Path(tempfile.mkdtemp(prefix="sync-only-", dir=SANDBOX))
         assert_physical_ancestors(self.base)
+        # Windows TEMP may use an 8.3 alias; match PowerShell's canonical paths.
+        self.base = self.base.resolve()
         self.repo = self.base / "repo"
         self.user = self.base / "user"
         self.outside = self.base / "outside"

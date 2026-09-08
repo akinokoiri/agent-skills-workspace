@@ -32,6 +32,10 @@ authoring_mode: ai_generated
 
 上一轮基线意外调用真实 CLI 说明：其初始化先于子命令，即使 dry-run 也会写 DB/锁/缓存。真实来源迁移属于明确的受控操作，执行前备份数据库及元数据；不把它混入测试。
 
+本机首次来源预检中，数据库 60 条显式 true 工具记录变为空表，备份和当前预设元数据原本都为 `tools: {}`。v1.37.0 的部署与 GUI 读取入口都会先对可用工具补默认 true；实际联接、成员顺序和有效选择未变。迁移检查仅允许这组已核实的表示转换，仍拒绝任何 false、新键、成员、设置或目标变化；不通过恢复整库或重新部署掩盖它。其他设备须先核对自身元数据，不能套用此例外。
+
+跨设备测试应解析实际临时根路径后再作字符串与范围断言。GitHub Windows runner 的 `RUNNER~1` 和完整用户名可能指向同一目录；不能把路径拼写差异判为越界，也不能取消范围保护。远端 CI 的结果与本地通过结果分别记录。
+
 上一次将 domain-modeling/SKILL.md 放进 references 仍被宿主递归发现，证明“内部目录”不等于不可发现。本轮改为 domain-modeling.md 并保留路由；通过目录枚举核验未增加新技能入口。
 
 ## 上游依据
@@ -40,5 +44,6 @@ authoring_mode: ai_generated
 - [CLI 来源修改接口](https://github.com/xingkongliang/skills-manager/blob/v1.37.0/src-tauri/src/bin/skills-manager-cli.rs#L189)。
 - [部署读取中央路径](https://github.com/xingkongliang/skills-manager/blob/v1.37.0/src-tauri/src/core/scenario_service.rs#L83)。
 - [GUI 启动恢复活动预设](https://github.com/xingkongliang/skills-manager/blob/v1.37.0/src-tauri/src/core/scenario_service.rs#L601)。
+- [工具默认值](https://github.com/xingkongliang/skills-manager/blob/v1.37.0/src-tauri/src/core/skill_store.rs#L904)及 [GUI 读取前补默认值](https://github.com/xingkongliang/skills-manager/blob/v1.37.0/src-tauri/src/commands/sync.rs#L204)。
 
 具体设备版本、提交和来源迁移结果保存在本次 Codex 任务交付报告；后续使用以就地核对为准。
