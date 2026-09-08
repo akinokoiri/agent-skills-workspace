@@ -1,11 +1,11 @@
 # init
 
-Initialize or retrofit Project Cairn in a project. This is an interactive setup process; ask before writing.
+Initialize or retrofit Project Cairn in a project. Reuse choices and authorization the user already supplied for this project. Collect only consequential unresolved choices before applying their authorized setup; local preparation does not need a second permission request.
 
 ## Decisions to collect
 
 1. Project name and one-line summary.
-2. Whether `cairn/` is committed, ignored, or privately synced (`git_policy`: `track` | `ignore` | `private_sync`). **Per-project — always ask, never inherit** (see "Per-project decisions" below). If `cairn/Reference/` (see decision list in `assets/templates/config.yaml`) is expected to hold externally-owned or sensitive raw material — a client's PDF, a call transcript — offer a separate, optionally more conservative `reference_git_policy` for it alone; omitting it means Reference/ simply inherits `git_policy`. The resolved answer is not just recorded — it is enforced via `.gitignore` (see "Enforcing git_policy" below).
+2. Whether `cairn/` is committed, ignored, or privately synced (`git_policy`: `track` | `ignore` | `private_sync`). **Per-project — use this project's explicit decision, never inherit another project's answer** (see "Per-project decisions" below). If `cairn/Reference/` (see decision list in `assets/templates/config.yaml`) is expected to hold externally-owned or sensitive raw material — a client's PDF, a call transcript — offer a separate, optionally more conservative `reference_git_policy` for it alone; omitting it means Reference/ simply inherits `git_policy`. The resolved answer is not just recorded — it is enforced via `.gitignore` (see "Enforcing git_policy" below).
 3. Graduation provider(s): collect zero or more targets (e.g. Obsidian, Lark/Feishu CLI, Notion). "Not yet" is a first-class answer — the user may defer connecting any knowledge base until the first graduation (see "Deferred graduation provider" below).
 4. For each provider, collect target and index location. Do not hardcode concrete Obsidian vault paths or directory names; those are user/project choices.
 5. Historical knowledge strategy (`migration_mode`). Default: `start_fresh`.
@@ -25,13 +25,13 @@ Credentials (tokens, vault secrets, Lark app secrets) never go in either config 
 
 ### First run vs. later runs
 
-- **First run (no user-level config):** ask the full question set above. After collecting answers, offer to save them as user-level defaults at `~/.config/cairn/config.yaml` — **excluding the per-project decisions below**, which are never written there.
-- **Later runs (user-level config exists):** show the resolved defaults and offer one-key reuse, phrased in the project's resolved `language` (e.g. in English: "Reuse usual config? [Enter]"). Only re-ask the decisions the user wants to change. The reuse panel covers `migration_mode`, `language`, and providers only; after the user accepts it, **still ask the per-project decisions separately** — one extra keystroke, not a re-interview.
+- **First run (no user-level config):** resolve the question set above from the current request and available project facts; ask only for consequential choices that remain unresolved. After collecting answers, offer to save them as user-level defaults at `~/.config/cairn/config.yaml` — **excluding the per-project decisions below**, which are never written there.
+- **Later runs (user-level config exists):** show the resolved defaults and offer one-key reuse, phrased in the project's resolved `language` (e.g. in English: "Reuse usual config? [Enter]"). Only re-ask the decisions the user wants to change. The reuse panel covers `migration_mode`, `language`, and providers only; resolve per-project decisions separately from the personal defaults, using any explicit answer already given for this repository and asking only for a missing one.
 - **Non-interactive mode:** when a user-level config exists, apply the resolved values silently without prompting (for scripted or unattended setup). Per-project decisions have no resolved value to apply — see their fallback rule below.
 
 ### Per-project decisions (never inherited)
 
-`git_policy` and `reference_git_policy` are collected fresh in every project. They do not appear in `~/.config/cairn/config.yaml`, they are absent from the one-key reuse panel, and no cascading layer supplies them.
+`git_policy` and `reference_git_policy` require a decision for this repository. Reuse a user-confirmed choice for this same repository; when an old stored value has no evidence of such a choice, ask once. These policies do not come from user-level defaults or another project's answer.
 
 The rule that puts a decision in this class: **is it a property of this repository, or a habit of this person?** `language` (I write docs in Chinese), `migration_mode` (I start fresh), and providers (my vault lives here) travel with the user and are worth reusing. Whether `cairn/` belongs in version control is a property of the repo — public OSS, client-private work, a throwaway sandbox — so the previous project's answer carries no predictive value for the next one.
 
@@ -64,7 +64,7 @@ Decision #6 resolves through the same three layers above. One extra rule governs
 2. **Conversation language** — otherwise, suggest the language of the user's most recent message.
 3. **English** — otherwise (a very first short instruction, mixed-language input, or non-interactive/scripted init), fall back to English.
 
-This is a suggested default, not a silent decision: the user still confirms or overrides it like any other init question. Once confirmed, `language` is saved into `~/.config/cairn/config.yaml` exactly like `migration_mode`; the next `cairn init` — on either agent, in this project or a new one — reuses it via the "later runs" one-key flow above instead of re-detecting or re-asking.
+Use an explicit language choice already given; otherwise state the suggested default and ask only if the language is consequential and still ambiguous. Once confirmed, `language` is saved into `~/.config/cairn/config.yaml` exactly like `migration_mode`; the next `cairn init` — on either agent, in this project or a new one — reuses it via the "later runs" one-key flow above instead of re-detecting or re-asking.
 
 When the resolved `language` is not English, write `AGENTS.md` / `cairn/LOG.md` / `cairn/ROADMAP.md` / topic notes in that language: translate prose and section headings, but keep `{{PLACEHOLDER}}` tokens, frontmatter keys, and file names exactly as the English templates in `assets/templates/` define them, and preserve the same heading sequence. For Chinese, match established terms — including heading labels — using `references/zh-glossary.md` so wording stays consistent across independently-initialized projects.
 
@@ -117,7 +117,7 @@ When a provider is connected later, restore all these locations to the standard 
 
 ### Provider target naming
 
-Any human-facing name for a graduation target — an Obsidian folder, a Notion database title, a Lark/Feishu wiki space — is the **user's** to choose, not Project Cairn's. Ask for it explicitly during provider collection (decision #4) and freeze the answer into `.cairn/config.yaml`; never default it to "Project Cairn" or any other tool-authored string, even when Project Cairn itself is the project being initialized. When a provider adapter script needs the name to create something new (e.g. `notion-init-db.sh --title`), pass the collected value — the script should refuse to invent one.
+Any human-facing name for a graduation target — an Obsidian folder, a Notion database title, a Lark/Feishu wiki space — is the **user's** to choose, not Project Cairn's. Use the name the user already supplied, or ask for it during provider collection (decision #4) when missing, and freeze the answer into `.cairn/config.yaml`; never default it to "Project Cairn" or any other tool-authored string, even when Project Cairn itself is the project being initialized. When a provider adapter script needs the name to create something new (e.g. `notion-init-db.sh --title`), pass the collected value — the script should refuse to invent one.
 
 ### Tool-backed provider preflight
 

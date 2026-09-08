@@ -1,22 +1,23 @@
 ---
 name: teach
-description: Teach the user a new skill or concept, within this workspace.
+description: Build or continue a guided course in a teaching workspace when the user requests ongoing lessons, practice, or an existing course session. Ordinary one-off explanations do not require this workflow.
 argument-hint: "What would you like to learn about?"
 ---
 
-The user has asked you to teach them something. This is a stateful request - they intend to learn the topic over multiple sessions.
+Use this stateful workflow when the user requests an ongoing course or continues an existing teaching workspace. For a one-off explanation, answer directly without creating course files.
 
 ## Teaching Workspace
 
-Treat the current directory as a teaching workspace. The state of their learning is captured in this directory in several files:
+Use the teaching workspace selected by the user or identified by existing course files. Resolve course paths relative to that root; do not repurpose an unrelated project directory. The state of their learning is captured in several files:
 
 - `MISSION.md`: A document capturing the _reason_ the user is interested in the topic. This should be used to ground all teaching. Use the format in [MISSION-FORMAT.md](./MISSION-FORMAT.md).
 - `./reference/*.html`: A directory of reference materials. These are the compressed learnings from the lessons - cheat sheets, reference algorithms, syntax, yoga poses, glossaries. They are the raw units of learning. They should be beautiful documents which print out well, and are designed for quick reference.
 - `RESOURCES.md`: A list of resources which can be explored to ground your teaching in contextual knowledge, or to acquire knowledge and wisdom. Use the format in [RESOURCES-FORMAT.md](./RESOURCES-FORMAT.md).
 - `./learning-records/*.md`: A directory of learning records, which capture what the user has learned. These are loosely equivalent to architectural decision records in software development - they capture non-obvious lessons and key insights that may need to be revised later, or drive future sessions. These should be used to calculate the zone of proximal development. They are titled `0001-<dash-case-name>.md`, where the number increments each time. Use the format in [LEARNING-RECORD-FORMAT.md](./LEARNING-RECORD-FORMAT.md).
-- `./lessons/*.html`: A directory of lessons. A **lesson** is a single, self-contained HTML output that teaches one tightly-scoped thing tied to the mission. This is the primary unit of teaching in this workspace.
+- `./lessons/*.html`: A directory of lessons. A **lesson** is one HTML page that teaches one tightly-scoped thing tied to the mission and may use the workspace's shared assets. This is the primary unit of teaching in this workspace.
 - `./assets/*`: Reusable **components** shared across lessons. See [Assets](#assets).
 - `NOTES.md`: A scratchpad for you to jot down user preferences, or working notes.
+- `GLOSSARY.md`: Terms the user has demonstrated they understand; create it when needed using [GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md).
 
 ## Philosophy
 
@@ -26,7 +27,7 @@ To learn at a deep level, the user needs three things:
 - **Skills**, acquired through highly-relevant interactive lessons devised by you, based on the knowledge
 - **Wisdom**, which comes from interacting with other learners and practitioners
 
-Before the `RESOURCES.md` is well-populated, your focus should be to find high-quality resources which will help the user acquire knowledge. Never trust your parametric knowledge.
+Find enough trustworthy sources to support the next lesson's factual claims and one useful follow-up resource, then teach the lesson. Record unresolved source gaps; do not postpone teaching to fill an unbounded resource catalog.
 
 Some topics may require more skills than knowledge. Learning more about theoretical physics might be more knowledge-based. For yoga, more skills-based.
 
@@ -45,7 +46,7 @@ Fluency can give the user an illusory sense of mastery, but storage strength is 
 
 ## Lessons
 
-A lesson is the main thing you produce: the unit in which knowledge and skills reach the user. Each lesson is one self-contained HTML file, saved to `./lessons/` and titled `0001-<dash-case-name>.html` where the number increments each time.
+A lesson is the main thing you produce: the unit in which knowledge and skills reach the user. Each lesson is one HTML page, saved to `./lessons/` and titled `0001-<dash-case-name>.html` where the number increments each time. Course pages may link shared assets. When the user requests a standalone portable HTML file, bundle those assets into the exported copy while retaining the shared source components.
 
 A lesson should be **beautiful**, with clean, readable typography and layout, since the user will return to these later to review. Think Tufte.
 
@@ -71,11 +72,11 @@ A shared stylesheet is the first component every workspace earns: every lesson l
 
 Every lesson should be tied into the mission - the reason that the user is interested in learning about the topic.
 
-If the user is unclear about the mission, or the `MISSION.md` is not populated, your first job should be to question the user on why they want to learn this.
+Use the user's stated learning goal and existing `MISSION.md`. If the file is missing but the goal is clear, record it and proceed. Ask only when the missing goal would materially change the lesson.
 
 Failing to understand the mission will mean knowledge acquisition is not grounded in real-world goals. Lessons will feel too abstract. You will have no way of judging what the user should do next.
 
-Missions may change as the user develops more skills and knowledge. This is normal - make sure to update the `MISSION.md` and add a learning record to capture the change. Confirm with the user before changing the mission.
+Missions may change as the user develops more skills and knowledge. This is normal - make sure to update the `MISSION.md` and add a learning record to capture the change. Use a mission change the user has explicitly requested; ask before substituting a different goal yourself.
 
 ## Zone Of Proximal Development
 

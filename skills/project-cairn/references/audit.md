@@ -23,10 +23,10 @@ Manual or agent-requested checks on the project knowledge layer. Audit is the sa
 - Project topic notes that have graduated but lack the recommended back-pointer (`graduated_to` / `graduated_at`).
 - Project topic notes whose `updated` frontmatter date is newer than their `graduated_at` — the corresponding knowledge-base note may now be stale; suggest re-graduation (see `graduation.md` → Re-graduation), don't auto-trigger it.
 - Closed or abandoned exploration branches whose valuable `cairn/` knowledge was never salvaged (should trigger a branch closure review, or a LOG / topic / graduation-candidate follow-up).
-- Instance drift against the current skill spec: read `skill_spec_date` from `.cairn/config.yaml` and run the Detect step of every `references/upgrade.md` changelog entry newer than it (missing field = run the full changelog). Report drifted items with each entry's fix guidance and safety level; fixing them is the upgrade flow in `upgrade.md`, not audit's job.
+- Instance drift against the current skill spec: read `skill_spec_date` from `.cairn/config.yaml` and run the Detect step of every `references/upgrade.md` changelog entry newer than it (missing field = run the full changelog). Also recheck unresolved entries explicitly identified in the latest upgrade report, even if older than the stored date. Report drifted items with each entry's fix guidance and safety level; fixing them is the upgrade flow in `upgrade.md`, not audit's job.
 
 ## Behavior
 
 Suggest fixes. Do not silently rewrite large bodies of content without user confirmation.
 
-The audit run itself earns one `cairn/LOG.md` entry — a short summary of what was checked and what was found, plus a pointer to the findings, added at the top like any entry. Appending this record is not "rewriting content"; the no-rewrite rule protects existing material, not the log of the audit happening.
+For an explicit read-only/no-edit audit, return findings without writing Cairn records and note that the audit log entry is deferred. Otherwise the audit run itself earns one `cairn/LOG.md` entry — a short summary of what was checked and what was found, plus a pointer to the findings, added at the top like any entry. Appending this record is not "rewriting content"; the no-rewrite rule protects existing material, not the log of the audit happening.

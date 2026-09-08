@@ -1,73 +1,108 @@
 #!/usr/bin/env python3
-"""
-Agent Skills 自动化合规性校验脚本
-用于 GitHub Actions CI 与本地预检，确保所有技能目录结构与元数据 100% 合规。
-"""
-
-import os
-import sys
+"""Validate skill metadata for local imports and CI; no files are changed."""
+from __future__ import annotations
+import argparse
+import json
+from pathlib import Path
 import re
+import sys
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
+class SkillValidationError(ValueError):
+    """The skill cannot be safely identified from its metadata."""
+
+if yaml is not None:
+    class UniqueKeyLoader(yaml.SafeLoader):
+        """Reject duplicate keys instead of silently accepting the last value."""
+        def construct_mapping(self, node, deep=False):
+            self.flatten_mapping(node)
+            result = {}
+            for key_node, value_node in node.value:
+                key = self.construct_object(key_node, deep=deep)
+                try:
+                    duplicate = key in result
+                except TypeError as exc:
+                    raise SkillValidationError("YAML mapping keys must be scalar values") from exc
+                if duplicate:
+                    raise SkillValidationError(f"Duplicate YAML key: {key}")
+                result[key] = self.construct_object(value_node, deep=deep)
+            return result
+
+def read_skill_metadata(skill_dir, *, check_directory=True, expected_name=None):
+    if yaml is None:
+        raise SkillValidationError("PyYAML is required: from the repository root, run python -m pip install -r requirements-dev.txt")
+    directory = Path(skill_dir)
+    try:
+        content = (directory / "SKILL.md").read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeError) as exc:
+        raise SkillValidationError(f"Cannot read UTF-8 SKILL.md: {exc}") from exc
+    match = re.match(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", content, re.DOTALL)
+    if not match:
+        raise SkillValidationError("SKILL.md must start with a complete YAML frontmatter block")
+    try:
+        metadata = yaml.load(match.group(1), Loader=UniqueKeyLoader)
+    except yaml.YAMLError as exc:
+        raise SkillValidationError(f"Invalid YAML frontmatter: {exc}") from exc
+    if not isinstance(metadata, dict):
+        raise SkillValidationError("YAML frontmatter must be a mapping")
+    for field in ("name", "description"):
+        if not isinstance(metadata.get(field), str) or not metadata[field].strip():
+            raise SkillValidationError(f"{field} must be a non-empty string")
+    name = metadata["name"]
+    if len(name) > 64 or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name):
+        raise SkillValidationError("name must use lowercase letters, digits and single hyphens, at most 64 characters")
+    if check_directory and name != directory.name:
+        raise SkillValidationError(f"Declared name {name!r} differs from directory {directory.name!r}")
+    if expected_name is not None and name != expected_name:
+        raise SkillValidationError(f"Requested name {expected_name!r} differs from declared name {name!r}")
+    return {"name": name, "description": metadata["description"]}
 
 def validate_skills(skills_dir="skills"):
-    if not os.path.exists(skills_dir):
-        print(f"❌ 找不到目录: {skills_dir}")
+    directory = Path(skills_dir)
+    if not directory.is_dir():
+        print(f"ERROR: Skills directory not found: {directory}", file=sys.stderr)
         return False
-
-    errors = []
-    skill_dirs = [d for d in os.listdir(skills_dir) if os.path.isdir(os.path.join(skills_dir, d))]
-
-    print(f"🔍 正在校验 {skills_dir}/ 下的 {len(skill_dirs)} 个技能目录...\n")
-
-    for skill_name in sorted(skill_dirs):
-        full_path = os.path.join(skills_dir, skill_name)
-        skill_md = os.path.join(full_path, "SKILL.md")
-
-        # 1. 检查必需的核心定义文件 SKILL.md
-        if not os.path.isfile(skill_md):
-            errors.append(f"[{skill_name}] 缺少必需的核心定义文件 SKILL.md")
-            continue
-
-        # 2. 读取并验证 Frontmatter
+    children = sorted(p for p in directory.iterdir() if p.is_dir() and not p.name.startswith("."))
+    if not children:
+        print(f"ERROR: No skill directories found: {directory}", file=sys.stderr)
+        return False
+    failures = []
+    for child in children:
         try:
-            with open(skill_md, "r", encoding="utf-8") as f:
-                content = f.read()
-        except Exception as e:
-            errors.append(f"[{skill_name}] 读取 SKILL.md 失败: {e}")
-            continue
-
-        match = re.match(r"^---\s*\r?\n(.*?)\r?\n---", content, re.DOTALL)
-        if not match:
-            errors.append(f"[{skill_name}] SKILL.md 头部缺少以 --- 包裹的标准 YAML Frontmatter")
-            continue
-
-        fm = match.group(1)
-
-        # 提取 name
-        name_match = re.search(r"^name:\s*[\"']?([a-zA-Z0-9_-]+)[\"']?\s*$", fm, re.MULTILINE)
-        desc_match = re.search(r"^description:\s*(.+)$", fm, re.MULTILINE)
-
-        if not name_match:
-            errors.append(f"[{skill_name}] YAML Frontmatter 中缺少有效的 name 字段")
+            read_skill_metadata(child)
+        except SkillValidationError as exc:
+            failures.append((child.name, str(exc)))
+            print(f"FAIL: {child.name}: {exc}", file=sys.stderr)
         else:
-            declared_name = name_match.group(1).lower()
-            if declared_name != skill_name.lower():
-                errors.append(f"[{skill_name}] 声明的 name ({declared_name}) 与目录名 ({skill_name}) 不一致")
+            print(f"PASS: {child.name}")
+    print(f"Validated {len(children)} skills; failures={len(failures)}")
+    return not failures
 
-        if not desc_match or not desc_match.group(1).strip():
-            errors.append(f"[{skill_name}] YAML Frontmatter 中缺少有效的 description 字段")
-
-        print(f"  ✓ 校验通过: {skill_name}")
-
-    if errors:
-        print("\n❌ 发现以下合规性校验错误:")
-        for err in errors:
-            print(f"  - {err}")
-        return False
-
-    print("\n🎉 所有技能格式校验全部通过！零格式缺陷。")
-    return True
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("skills_dir", nargs="?", default="skills")
+    parser.add_argument("--skill-dir", help="Validate one skill directory")
+    parser.add_argument("--source", action="store_true", help="Permit a different source folder name before import")
+    parser.add_argument("--expected-name")
+    parser.add_argument("--json", action="store_true", help="Emit name/description JSON for one skill")
+    args = parser.parse_args(argv)
+    if not args.skill_dir:
+        if args.source or args.expected_name or args.json:
+            parser.error("--source, --expected-name and --json require --skill-dir")
+        return 0 if validate_skills(args.skills_dir) else 1
+    try:
+        metadata = read_skill_metadata(args.skill_dir, check_directory=not args.source, expected_name=args.expected_name)
+    except SkillValidationError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(metadata, ensure_ascii=True))
+    else:
+        print(f"PASS: {metadata['name']}")
+    return 0
 
 if __name__ == "__main__":
-    target_dir = sys.argv[1] if len(sys.argv) > 1 else "skills"
-    if not validate_skills(target_dir):
-        sys.exit(1)
+    raise SystemExit(main())

@@ -1,208 +1,186 @@
 ﻿<#
 .SYNOPSIS
-    零 Token 损耗、防错的技能导入与上载工具 (Skill Ingestion & Sync Tool)
+    Validate and import one skill; optionally publish it or refresh local links.
 .DESCRIPTION
-    面向人类与 AI Agent 的高可靠技能收纳工具：
-      1. 本地/跨机执行毫秒级文件系统流转（禁止 LLM 上下文搬运大文件，极大节省 Token）
-      2. 严格的 SKILL.md 结构与 YAML Frontmatter 格式验证（防损坏/防残缺）
-      3. 技能重名防冲撞检测与带时间戳安全备份（防意外覆盖）
-      4. (可选) 自动提交并推送至 GitHub 中央库（一键完成跨机分发闭环）
-      5. (可选) 自动更新本机所有 Agent 的 NTFS Junction 挂载
-.PARAMETER SourcePath
-    本地已有技能的目录路径（例如其他 Agent 的某个技能文件夹，或临时下载的目录）。
-.PARAMETER GitUrl
-    外部 Git 仓库地址（支持直接拉取远程单一技能仓库）。
+    Imports are local unless -Push is explicitly supplied. Publishing requires a
+    clean main checkout and fast-forwards before changing the skill. Existing
+    contents are retained in backups when -Force is used. No stash or other
+    skill manager is used. Failed Git/validation/sync commands stop the workflow.
 .PARAMETER Name
-    自定义技能名称（必须符合 kebab-case 规范，如 my-skill）。默认取 SKILL.md 中的 name。
-.PARAMETER Force
-    若目标已存在同名技能，强制备份并替换。
-.PARAMETER Push
-    导入成功后，自动执行 git pull --rebase、commit 并 push 到远程 GitHub 仓库。
+    Optional assertion of the exact YAML name; this does not rename metadata.
 .PARAMETER NoSync
-    导入后跳过运行 sync-skills.ps1 挂载步骤。
-.EXAMPLE
-    .\scripts\import-skill.ps1 -SourcePath "C:\Users\username\.claude\skills\new-tool" -Push
-.EXAMPLE
-    .\scripts\import-skill.ps1 -SourcePath "D:\downloads\cool-skill" -Force
+    Compatibility switch for the default without link synchronization.
+.PARAMETER Sync
+    Explicitly refresh links on a device managed by sync-skills.ps1. Omit on
+    devices whose links are managed by Skills Manager. Cannot combine with NoSync.
+.PARAMETER PythonExecutable
+    Python executable with PyYAML installed; defaults to python on PATH.
 #>
-
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $false)]
     [string]$SourcePath,
-
-    [Parameter(Mandatory = $false)]
     [string]$GitUrl,
-
-    [Parameter(Mandatory = $false)]
     [string]$Name,
-
     [switch]$Force,
     [switch]$Push,
-    [switch]$NoSync
+    [switch]$NoSync,
+    [switch]$Sync,
+    [string]$PythonExecutable
 )
+$ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'Workflow.Common.psm1') -Force -DisableNameChecking
+$workspaceRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$skillsRoot = Join-Path $workspaceRoot 'skills'
+$backupsRoot = Join-Path $workspaceRoot 'backups'
+$validator = Join-Path $PSScriptRoot 'validate-skills.py'
+$installed = $false
+$published = $false
+$previousPath = $null
+$cloneRoot = $null
 
-$ErrorActionPreference = "Stop"
+function Assert-PlainDirectory {
+    param([string]$Path)
+    $item = Get-Item -LiteralPath $Path -Force
+    if (-not $item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw "Expected an ordinary directory: $Path"
+    }
+}
 
-$WorkspaceRoot = (Resolve-Path "$PSScriptRoot\..").Path
-$CentralSkillsDir = Join-Path $WorkspaceRoot "skills"
-$BackupsBaseDir = Join-Path $WorkspaceRoot "backups"
+function Assert-ChildPath {
+    param([string]$Path, [string]$Parent)
+    $fullPath = [IO.Path]::GetFullPath($Path)
+    $prefix = [IO.Path]::GetFullPath($Parent).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+    if (-not $fullPath.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Path is outside its intended directory: $fullPath"
+    }
+}
 
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host " 📦 Skill 快速安全收纳工具 (Zero-Token & Anti-Error)" -ForegroundColor Cyan
-Write-Host " 中央技能库: $CentralSkillsDir" -ForegroundColor Gray
-Write-Host "============================================================" -ForegroundColor Cyan
-
-# 1. 来源解析与获取
-$TempCloneDir = $null
-$ResolvedSourceDir = $null
+function Copy-ImportTree {
+    param([string]$Source, [string]$Destination)
+    # Copy before replacing the destination, including when importing from a
+    # global junction that already points to this skill. Never follow child links.
+    New-Item -ItemType Directory -Path $Destination -ErrorAction Stop | Out-Null
+    foreach ($item in Get-ChildItem -LiteralPath $Source -Force) {
+        if ($item.Name -eq '.git') { continue }
+        if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+            throw "Linked content cannot be imported automatically: $($item.FullName)"
+        }
+        $target = Join-Path $Destination $item.Name
+        if ($item.PSIsContainer) { Copy-ImportTree -Source $item.FullName -Destination $target }
+        else { Copy-Item -LiteralPath $item.FullName -Destination $target -ErrorAction Stop }
+    }
+}
 
 try {
+    if ($Sync -and $NoSync) { throw '-Sync and -NoSync cannot be combined.' }
+    if ([bool]$SourcePath -eq [bool]$GitUrl) { throw 'Supply exactly one of -SourcePath or -GitUrl.' }
+    $git = $null
+    if ($GitUrl -or $Push) { $git = Get-WorkflowGit }
+    if ($Push) { Assert-CleanWorkflowRepository -Git $git -Root $workspaceRoot }
+    if (-not $PythonExecutable) {
+        $PythonExecutable = (Get-Command python -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+    }
+    if (-not (Test-Path -LiteralPath $validator -PathType Leaf)) { throw "Validator is missing: $validator" }
+    Assert-PlainDirectory -Path $skillsRoot
+    if (-not (Test-Path -LiteralPath $backupsRoot)) { New-Item -ItemType Directory -Path $backupsRoot | Out-Null }
+    Assert-PlainDirectory -Path $backupsRoot
+
     if ($GitUrl) {
-        Write-Host "`n[1/5] 从远程 Git 仓库拉取技能: $GitUrl ..." -ForegroundColor Yellow
-        $TempCloneDir = Join-Path $env:TEMP "skill-clone-$([System.Guid]::NewGuid().ToString('N'))"
-        git clone --depth 1 $GitUrl $TempCloneDir | Out-Null
-        $ResolvedSourceDir = $TempCloneDir
-        Write-Host "  ✓ 远程仓库拉取完成。" -ForegroundColor Green
-    } elseif ($SourcePath) {
-        Write-Host "`n[1/5] 检查本地源路径: $SourcePath ..." -ForegroundColor Yellow
-        if (!(Test-Path $SourcePath)) {
-            Write-Error "指定的源路径不存在: $SourcePath"
-            exit 1
-        }
-        $ResolvedSourceDir = (Resolve-Path $SourcePath).Path
-        Write-Host "  ✓ 本地源路径已确认: $ResolvedSourceDir" -ForegroundColor Green
-    } else {
-        Write-Error "必须提供 -SourcePath 或 -GitUrl 参数！"
-        exit 1
+        $cloneRoot = Join-Path ([IO.Path]::GetTempPath()) ('skill-clone-' + [guid]::NewGuid().ToString('N'))
+        $clone = Invoke-WorkflowGit -Git $git -Root $workspaceRoot -ArgumentList @('clone', '--depth', '1', '--', $GitUrl, $cloneRoot)
+        $clone.Output | Write-Output
+        $SourcePath = $cloneRoot
+    }
+    if (-not (Test-Path -LiteralPath $SourcePath -PathType Container)) { throw 'SourcePath must be a directory containing SKILL.md.' }
+    $SourcePath = (Resolve-Path -LiteralPath $SourcePath).Path
+    $metadataResult = Invoke-WorkflowNative -Executable $PythonExecutable -ArgumentList @($validator, '--skill-dir', $SourcePath, '--source', '--json') -Label 'Skill metadata validation'
+    $metadata = ($metadataResult.Output -join [Environment]::NewLine) | ConvertFrom-Json
+    $skillName = [string]$metadata.name
+    if ($Name -and $Name -cne $skillName) { throw '-Name must exactly match the declared YAML name; edit the source metadata to rename a skill.' }
+    $destination = Join-Path $skillsRoot $skillName
+    Assert-ChildPath -Path $destination -Parent $skillsRoot
+    if (Test-Path -LiteralPath $destination) {
+        Assert-PlainDirectory -Path $destination
+        if (-not $Force) { throw "Skill already exists; review it and use -Force to retain a backup and replace it: $skillName" }
     }
 
-    # 2. 格式与元数据深度合规校验 (死门关卡)
-    Write-Host "`n[2/5] 验证技能规范合规性 (SKILL.md & YAML Frontmatter)..." -ForegroundColor Yellow
+    $operationRoot = Join-Path $backupsRoot ('import-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $operationRoot | Out-Null
+    $incomingRoot = Join-Path $operationRoot 'incoming'
+    New-Item -ItemType Directory -Path $incomingRoot | Out-Null
+    $incoming = Join-Path $incomingRoot $skillName
+    Copy-ImportTree -Source $SourcePath -Destination $incoming
+    $validated = Invoke-WorkflowNative -Executable $PythonExecutable -ArgumentList @($validator, '--skill-dir', $incoming, '--expected-name', $skillName) -Label 'Copied skill validation'
+    $validated.Output | Write-Output
 
-    $SkillMdPath = Join-Path $ResolvedSourceDir "SKILL.md"
-    if (!(Test-Path $SkillMdPath)) {
-        Write-Error "合规校验失败: 目标目录下缺少核心定义文件 [SKILL.md]！`n路径: $ResolvedSourceDir"
-        exit 1
-    }
-
-    $skillContent = Get-Content -Path $SkillMdPath -Raw -Encoding UTF8
-    if ($skillContent -notmatch "(?s)^---\s*\r?\n(.*?)\r?\n---") {
-        Write-Error "合规校验失败: [SKILL.md] 头部缺少标准 YAML Frontmatter (以 '---' 开头与结尾)！"
-        exit 1
-    }
-
-    $frontmatter = $matches[1]
-
-    # 提取 name
-    $declaredName = $null
-    if ($frontmatter -match "(?m)^name:\s*['""]?([a-zA-Z0-9_-]+)['""]?\s*$") {
-        $declaredName = $matches[1].Trim().ToLower()
-    }
-
-    # 提取 description
-    $declaredDesc = $null
-    if ($frontmatter -match "(?m)^description:\s*(.+)$") {
-        $declaredDesc = $matches[1].Trim()
-    }
-
-    if ([string]::IsNullOrWhiteSpace($declaredName)) {
-        Write-Error "合规校验失败: YAML Frontmatter 中缺少或未定义有效的 [name] 字段！"
-        exit 1
-    }
-
-    if ([string]::IsNullOrWhiteSpace($declaredDesc)) {
-        Write-Error "合规校验失败: YAML Frontmatter 中缺少或未定义有效的 [description] 字段！"
-        exit 1
-    }
-
-    # 确定最终技能目录名
-    $TargetSkillName = if ($Name) { $Name.ToLower() } else { $declaredName }
-
-    # 校验命名是否符合 kebab-case
-    if ($TargetSkillName -notmatch "^[a-z0-9]+(-[a-z0-9]+)*$") {
-        Write-Error "合规校验失败: 技能名称 [$TargetSkillName] 不符合规范！必须仅包含小写字母、数字及连字符 (例如: my-great-skill)。"
-        exit 1
-    }
-
-    Write-Host "  ✓ 技能名称: $TargetSkillName" -ForegroundColor Green
-    Write-Host "  ✓ 技能描述: $declaredDesc" -ForegroundColor Gray
-
-    # 3. 冲突侦测与安全写入
-    Write-Host "`n[3/5] 检测命名冲突与数据安全..." -ForegroundColor Yellow
-    $DestPath = Join-Path $CentralSkillsDir $TargetSkillName
-
-    if (Test-Path $DestPath) {
-        Write-Host "  ⚠️ 中央库中已存在同名技能: $TargetSkillName" -ForegroundColor DarkYellow
-        if (!$Force) {
-            Write-Error "操作中止: 目标技能 [$TargetSkillName] 已存在！`n如需覆盖已有版本，请附带 -Force 参数（脚本将自动对旧版本创建时间戳备份）。"
-            exit 1
-        }
-
-        # 执行安全备份
-        $backupTimestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-        $backupTarget = Join-Path (Join-Path $BackupsBaseDir $backupTimestamp) $TargetSkillName
-        if (!(Test-Path (Split-Path $backupTarget -Parent))) {
-            New-Item -ItemType Directory -Path (Split-Path $backupTarget -Parent) -Force | Out-Null
-        }
-        Copy-Item -Path $DestPath -Destination $backupTarget -Recurse -Force
-        Write-Host "  ✓ 已对原版本创建安全备份: $backupTarget" -ForegroundColor Green
-
-        Remove-Item -Path $DestPath -Recurse -Force
-    }
-
-    # 执行拷贝 (排除 .git 等冗余元数据)
-    New-Item -ItemType Directory -Path $DestPath -Force | Out-Null
-    Get-ChildItem -Path $ResolvedSourceDir -Force | Where-Object { $_.Name -ne ".git" } | ForEach-Object {
-        Copy-Item -Path $_.FullName -Destination $DestPath -Recurse -Force
-    }
-    Write-Host "  ✓ 技能已成功安全收纳至: $DestPath" -ForegroundColor Green
-
-    # 4. 本地各 Agent Junction 挂载
-    if (!$NoSync) {
-        Write-Host "`n[4/5] 刷新本地各 Agent 技能挂载 (sync-skills.ps1)..." -ForegroundColor Yellow
-        $syncScript = Join-Path $WorkspaceRoot "scripts\sync-skills.ps1"
-        if (Test-Path $syncScript) {
-            & $syncScript
-        }
-    } else {
-        Write-Host "`n[4/5] 跳过本地挂载刷新 (-NoSync)" -ForegroundColor Gray
-    }
-
-    # 5. Git 云端推送闭环
     if ($Push) {
-        Write-Host "`n[5/5] 执行 Git 提交与远程同步..." -ForegroundColor Yellow
-        Push-Location $WorkspaceRoot
-        try {
-            # 先安全拉取远端更新
-            Write-Host "  正在同步远端最新状态 (git pull --rebase)..." -ForegroundColor Gray
-            git pull --rebase origin main
-
-            # 添加并提交新技能
-            git add "skills/$TargetSkillName"
-            $commitMsg = "feat(skill): add/update $TargetSkillName"
-            git commit -m $commitMsg
-            Write-Host "  ✓ 已提交更改: $commitMsg" -ForegroundColor Green
-
-            # 推送到 GitHub
-            Write-Host "  正在推送到 GitHub 远程仓库..." -ForegroundColor Gray
-            git push origin main
-            Write-Host "  ✓ 远程推送成功！其他机器现已可随时同步。" -ForegroundColor Green
-        } finally {
-            Pop-Location
+        # Check again after staging the input. A rejected/failed pull leaves the
+        # tracked skill untouched. Backups are ignored by this repository.
+        Assert-CleanWorkflowRepository -Git $git -Root $workspaceRoot
+        $pull = Invoke-WorkflowGit -Git $git -Root $workspaceRoot -ArgumentList @('pull', '--ff-only', 'origin', 'main')
+        $pull.Output | Write-Output
+        Assert-CleanWorkflowRepository -Git $git -Root $workspaceRoot
+        $localHead = Invoke-WorkflowGit -Git $git -Root $workspaceRoot -ArgumentList @('rev-parse', 'HEAD')
+        $remoteHead = Invoke-WorkflowGit -Git $git -Root $workspaceRoot -ArgumentList @('rev-parse', 'refs/remotes/origin/main')
+        if (($localHead.Output -join '') -ne ($remoteHead.Output -join '')) {
+            throw 'main contains unpublished commits. Publish or resolve them separately before using import -Push.'
         }
-    } else {
-        Write-Host "`n[5/5] 未指定 -Push，修改仅保存在本地工作区。" -ForegroundColor Gray
-        Write-Host "      后续可在终端运行: git add skills/$TargetSkillName; git commit -m 'feat: add $TargetSkillName'; git push" -ForegroundColor DarkGray
+    }
+    Assert-PlainDirectory -Path $skillsRoot
+    Assert-PlainDirectory -Path $backupsRoot
+    Assert-PlainDirectory -Path $operationRoot
+    if (Test-Path -LiteralPath $destination) {
+        Assert-PlainDirectory -Path $destination
+        if (-not $Force) { throw "Skill now exists after updating; use -Force after reviewing it: $skillName" }
+        $previousPath = Join-Path $operationRoot 'previous'
+    }
+    $restore = [ordered]@{ target = $destination; previous = $previousPath; name = $skillName }
+    [IO.File]::WriteAllText((Join-Path $operationRoot 'restore-manifest.json'), ($restore | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
+    if ($previousPath) {
+        Assert-ChildPath -Path $destination -Parent $skillsRoot
+        Assert-ChildPath -Path $previousPath -Parent $operationRoot
+        [IO.Directory]::Move($destination, $previousPath)
+    }
+    try {
+        Assert-ChildPath -Path $incoming -Parent $operationRoot
+        Assert-ChildPath -Path $destination -Parent $skillsRoot
+        # Directory.Move fails if another writer creates the destination; it
+        # cannot silently nest the incoming skill inside an existing directory.
+        [IO.Directory]::Move($incoming, $destination)
+        $installed = $true
+    } catch {
+        if ($previousPath -and (Test-Path -LiteralPath $previousPath) -and -not (Test-Path -LiteralPath $destination)) {
+            Assert-ChildPath -Path $previousPath -Parent $operationRoot
+            Assert-ChildPath -Path $destination -Parent $skillsRoot
+            [IO.Directory]::Move($previousPath, $destination)
+        }
+        throw
     }
 
-    Write-Host "`n============================================================" -ForegroundColor Cyan
-    Write-Host " 🎉 技能 [$TargetSkillName] 处理完毕！" -ForegroundColor Green
-    Write-Host "============================================================" -ForegroundColor Cyan
-
+    if ($Push) {
+        $relativeSkill = 'skills/' + $skillName
+        $added = Invoke-WorkflowGit -Git $git -Root $workspaceRoot -ArgumentList @('add', '--', $relativeSkill)
+        $changed = Invoke-WorkflowGit -Git $git -Root $workspaceRoot -ArgumentList @('diff', '--cached', '--quiet', '--', $relativeSkill) -AllowedExitCodes @(0, 1)
+        if ($changed.ExitCode -eq 1) {
+            $commit = Invoke-WorkflowGit -Git $git -Root $workspaceRoot -ArgumentList @('commit', '-m', ('Import skill: ' + $skillName), '--', $relativeSkill)
+            $commit.Output | Write-Output
+        }
+        $pushResult = Invoke-WorkflowGit -Git $git -Root $workspaceRoot -ArgumentList @('push', 'origin', 'HEAD:main')
+        $pushResult.Output | Write-Output
+        $published = $true
+        Write-Output 'PUBLISH_COMPLETE: origin/main accepted the imported skill.'
+    }
+    if ($Sync) { Invoke-WorkflowSync -Root $workspaceRoot }
+    Write-Output ("IMPORT_COMPLETE: name={0}; published={1}; links_refreshed={2}" -f $skillName, $published, [bool]$Sync)
+    if ($previousPath) { Write-Output "Previous skill retained at: $previousPath" }
+    exit 0
+} catch {
+    if ($installed) { Write-Output "IMPORT_PARTIAL: files were imported, but a later step failed; published=$published. Local files and Git state were retained." }
+    if ($previousPath -and (Test-Path -LiteralPath $previousPath)) { Write-Output "Previous skill retained at: $previousPath" }
+    Write-Error (Protect-WorkflowOutput ([string]$_))
+    exit 1
 } finally {
-    # 清理临时克隆目录
-    if ($TempCloneDir -and (Test-Path $TempCloneDir)) {
-        Remove-Item -Path $TempCloneDir -Recurse -Force -ErrorAction SilentlyContinue
-    }
+    # Retain the newly allocated clone as an input snapshot. No recursive delete
+    # is performed on repository-provided trees, which may contain linked paths.
+    if ($cloneRoot -and (Test-Path -LiteralPath $cloneRoot)) { Write-Output "Clone snapshot retained at: $cloneRoot" }
 }

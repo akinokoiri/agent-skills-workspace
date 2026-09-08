@@ -2,7 +2,7 @@
 
 This repository (`akinokoiri/agent-skills-workspace`) serves as the **Single Source of Truth (SSOT)** for AI Coding Agent skills and MCP configurations across multiple devices and agents (Antigravity, Claude Code, ChatGPT Codex, Grok, DeepSeek Harness, etc.).
 
-When any AI Agent operates within this workspace or is asked to manage skills, the following protocols MUST be followed.
+These protocols govern work in this repository. Resolve the repository root before running the relative commands below; they do not make this file a global rule for other projects.
 
 ---
 
@@ -11,7 +11,7 @@ When any AI Agent operates within this workspace or is asked to manage skills, t
 ### 🔴 铁律一：禁止 LLM 上下文数据搬运 (Zero-Token Payload Principle)
 * **严禁**：调用读取工具将整个 Skill 目录、成百上千行的 `SKILL.md` 或脚本全文读入对话上下文，再通过模型输出写入目标路径。
   - *后果*：单次无谓消耗 10,000 ~ 50,000 Tokens，且极易引发换行符损毁、转义字符丢失或上下文截断。
-* **强制要求**：所有技能的收纳、迁移、同步必须下沉给操作系统层确定性脚本执行。Agent 仅需发出单行执行命令并观察退出代码（Exit Code）。
+* **强制要求**：所有技能的收纳、迁移、同步必须下沉给操作系统层确定性脚本执行。Agent 调用脚本并检查退出状态、目标文件和挂载结果。审计、调试与内容修改时可读取相关正文；原样搬运使用文件复制，避免让模型重打包。
 
 ### 🔴 铁律二：必须经过格式合规校验 (Validation Before Ingestion)
 任何新技能入库前，必须保证：
@@ -21,50 +21,56 @@ When any AI Agent operates within this workspace or is asked to manage skills, t
 
 ### 🔴 铁律三：防冲撞与备份隔离 (Conflict Prevention)
 * 严禁无预警覆盖已有同名技能；
-* 当更新已有技能时，必须自动在 `backups/<timestamp>/` 创建物理备份，确保具备毫秒级回滚能力。
+* 当更新已有技能时，在本仓库根的 `backups/<timestamp>/` 保留原文件与恢复清单。只修改已确认归属本任务的内容，不覆盖其他协作者的新改动。
 
 ---
 
 ## 2. Agent 任务行动指令手册 (Action Playbook)
 
-当人类用户向 Agent 提出以下需求时，Agent 应直接调用对应的确定性脚本执行：
+按用户已授权的动作选择对应脚本。安装或导入默认仅本地；只有明确要求提交/上传远端时添加 `-Push`。检查状态与执行同步分开，不把脚本退出成功等同于业务验收。导入和拉取默认只更新中央内容；只有明确选择脚本管理入口的设备按需加 `-Sync`。
 
-### 场景 A：用户要求“收纳 / 安装 / 上传新技能”
+### 场景 A：用户要求收纳或安装；上传是独立的可选动作
 - **输入形式 1：本地目录或从其他 Agent 发现**
   ```powershell
   # 仅导入到本地工作区
   .\scripts\import-skill.ps1 -SourcePath "C:\path\to\new-skill"
 
-  # 导入并一键推送至 GitHub 触发全局同步
+  # 明确要求提交/上传该项导入，且仓库干净时
   .\scripts\import-skill.ps1 -SourcePath "C:\path\to\new-skill" -Push
 
   # 若已存在同名技能需更新并备份
-  .\scripts\import-skill.ps1 -SourcePath "C:\path\to\new-skill" -Force -Push
+  .\scripts\import-skill.ps1 -SourcePath "C:\path\to\new-skill" -Force
   ```
 - **输入形式 2：从外部 Git 仓库拉取单个技能**
   ```powershell
-  .\scripts\import-skill.ps1 -GitUrl "https://github.com/user/cool-skill.git" -Push
+  .\scripts\import-skill.ps1 -GitUrl "https://github.com/user/cool-skill.git"
   ```
 
-### 场景 B：用户要求“拉取远端更新 / 同步最新技能”
+### 场景 B：拉取远端更新；默认只更新 Git 文件
 ```powershell
-# 一键安全拉取 (含 stash 保护) 并自动为新技能补全 NTFS Junction 挂载
 .\scripts\pull-sync.ps1
 
-# 同步后顺便查看各 Agent 挂载健康状态
+# 只读本地状态，不拉取、不部署
 .\scripts\pull-sync.ps1 -Status
+
+# 仅适用于已选择脚本管理入口的设备，显式拉取后补建入口
+.\scripts\pull-sync.ps1 -Sync
 ```
 
-### 场景 C：用户要求“检查技能健康度 / 清理坏死链接”
+普通拉取要求干净的 main 和 origin/main 跟踪关系，采用 ff-only；失败保留现场，不自动 stash/pop/rebase。Skills Manager 管理的设备不附加 -Sync，已有联接随中央文件更新。
+
+### 场景 C：检查或修复脚本管理的入口
 ```powershell
-# 查看状态
 .\scripts\sync-skills.ps1 -Status
+.\scripts\sync-skills.ps1 -DryRun
 
-# 强制修复、清理历史死链接并刷新挂载
-.\scripts\sync-skills.ps1 -Force
+# 审查差异后应用；默认保留冲突并报告未完成
+.\scripts\sync-skills.ps1
 ```
 
-### 场景 D：用户在新电脑上要求“一键配置环境”
+只有明确决定备份并替换普通冲突副本时才使用 -Force；未知链接仍保留。Skills Manager 和脚本不轮流控制同一目标的开关。
+
+### 场景 D：新设备使用脚本配置技能入口
 ```powershell
 .\scripts\setup-device.ps1
 ```
@@ -73,9 +79,9 @@ When any AI Agent operates within this workspace or is asked to manage skills, t
 
 ## 3. 全局行为与变更纪律 (Agent Operating Guidelines)
 
-1. **意外转向阻断法则 (Pivot Interruption Rule)**：
-   - 连续执行查询、构建、测试无异常时，保持紧凑吞吐；
-   - 当命令或工具遇到非预期报错，且准备放弃原方案改用备选方案时：**本轮禁止直接发出新工具调用**，必须先向用户说明：已确认错误、为何转向、拟采用的替代方案。
+1. **策略调整与继续执行**：
+   - 原计划内紧凑推进；策略显著变化时先简要说明事实和下一步，再继续已授权的工作。
+   - 只有必要输入或权限缺失、后续动作超出授权时暂停依赖该条件的步骤；保留其他独立工作的进展。
 2. **严谨求实**：
    - 未经验证的动作严禁声称成功；严格区分【已确认事实】与【推测/待核实】。
 3. **最小侵入原则**：

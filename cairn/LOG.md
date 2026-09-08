@@ -2,11 +2,25 @@
 
 This file records substantive progress in reverse-chronological order — newest entry at the top, right below this line. Keep each entry short — summary and pointer only; conclusions settle into `cairn/<topic>.md`.
 
+## 2026-09-08 · 多机 Git 更新与本机部署分离
+
+- 用户确认通用技能源；修复拉取、导入、格式校验及挂载的失败边界，默认更新正文不隐式调用 Skills Manager。
+- setup 收窄为技能入口配置；保留本机物理冲突与定制规则，旧的“预演仍写入”和失败后继续行为纳入隔离验证。
+- 核对 SM 的过期临时来源及当前正确联接，来源迁移须在推送后备份并使用受支持接口；不复制设备数据库。
+- 规则与验收边界见 [技能多机同步契约](skill-sync-contract.md)。
+
+## 2026-09-08 · 按当前差异修复规则与技能正文
+
+- 修复规则冲突、缺失参考、任务范围和历史指针；原文件按 SHA-256 比对后备份，保留其他 Agent 已完成的修正。
+- Skills Manager、多机 Git 来源及同步/安装脚本按用户要求延后；不将本轮内容修复视为同步链路验收。
+- 记录基线测试意外调用真实 Skills Manager CLI 的影响证据与验证边界。
+- 详情见 [规则与技能增量修复](rule-skill-repair-2026-09-08.md)。
+
 ## 2026-09-07 · pull-sync.ps1 联动 Skills Manager 与业务专属技能随行化
 
 - 完成 `scripts/pull-sync.ps1` 自动化升级：拉取技能并挂载后，自动调用 `skills-manager-cli skills sync`，打通 CLI 与 GUI 状态同步。
 - 架构优化落地：将酒店直连诊断（`hotel-pc-direct-diagnostics`）与 NAS 控制台（`qnap-nas-console`）完成项目随行工程化改造，源文件迁入对应工程的 `.agents/skills/`，通过百度同步盘实现双机自动同步，全局 Agent 目录通过 Junction 软链穿透，彻底解耦通用公共库与业务专用库。
-- 详情与完整知识沉淀：参见 [cairn/windows-environment-compatibility-and-agent-onboarding.md](file:///D:/agent-skills-workspace/cairn/windows-environment-compatibility-and-agent-onboarding.md)。
+- 详情与完整知识沉淀：参见 [cairn/windows-environment-compatibility-and-agent-onboarding.md](windows-environment-compatibility-and-agent-onboarding.md)。
 
 ## 2026-09-07 · 便携工作机部署实战、Junction 免交互安全解绑与 Codex 编码修复
 
@@ -14,7 +28,7 @@ This file records substantive progress in reverse-chronological order — newest
 - 根因排查与攻克 PowerShell 5.1 下 Junction 删除引发的隐藏交互弹窗，引入 .NET 原生 `Directory::Delete` 实现零交互解绑。
 - 修复 `sync-mcp.ps1` 在 PowerShell 5.1 下默认 ANSI 导致中文路径乱码、以及正则跨行断言引发 Codex `config.toml` 重复表闪退问题。
 - 部署并打通 `skills-manager` GUI（v1.36.2）与 CLI，批量完成 10 大核心公共技能的 Default Preset 纳管与未安装 Agent 过滤，与主力机视图对齐。
-- 详情与完整知识沉淀：参见 [cairn/windows-environment-compatibility-and-agent-onboarding.md](file:///D:/agent-skills-workspace/cairn/windows-environment-compatibility-and-agent-onboarding.md)。
+- 详情与完整知识沉淀：参见 [cairn/windows-environment-compatibility-and-agent-onboarding.md](windows-environment-compatibility-and-agent-onboarding.md)。
 
 ## 2026-09-06 · 跨机技能同步架构优化与零 Token 规范落地
 
@@ -23,7 +37,7 @@ This file records substantive progress in reverse-chronological order — newest
 - 在 Surface Pro 11 上实机验证了双向收纳、安全时间戳备份、推送与 NTFS Junction 挂载自愈闭环。
 - 修复了 GitHub Actions CI 脚本转义报错，实测工作流转为全部绿色通过。
 - 踩坑沉淀：WinCredMan 无头死锁解决、Base64 SSH 传参、PS 5.1 BOM 规范与 CI 单独脚本化。
-- 详情与完整知识总结：参见 [cairn/multi-device-sync-and-token-optimization.md](file:///g:/agent-skills-workspace/cairn/multi-device-sync-and-token-optimization.md)。
+- 详情与完整知识总结：参见 [cairn/multi-device-sync-and-token-optimization.md](multi-device-sync-and-token-optimization.md)。
 
 ## 2026-09-06 · Project Cairn 初始化
 

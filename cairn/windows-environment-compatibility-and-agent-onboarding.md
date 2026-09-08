@@ -15,7 +15,7 @@ contains:
   - lesson
   - pattern
 created: "2026-09-07"
-updated: "2026-09-07"
+updated: "2026-09-08"
 related:
   - multi-device-sync-and-token-optimization.md
 authoring_mode: ai_generated
@@ -67,9 +67,9 @@ authoring_mode: ai_generated
    - 机制：通过 Git 仓库多端同步，并通过 `sync-skills.ps1` 以 NTFS Junction 挂载到所有全局 Agent 目录。
 2. **业务专属技能 (Project-Bound Skills)**：
    - 特点：与特定项目源码强绑定（如酒店直连诊断 `hotel-pc-direct-diagnostics`、NAS 控制台 `qnap-nas-console`），离开对应工作区没有独立运行意义。
-   - 机制：**随行工程化**。放置在业务项目根目录的 `.agents/skills/<skill-name>/`，随业务工程（如百度同步盘/项目 Git 仓库）版本化与跨端同步；同时在项目内创建 `.gemini/skills` 挂载点，并在全局 Agent 中软链接挂载，实现全局与项目局部访问零割裂。
+   - 机制：源文件放在业务项目的 `.agents/skills/<skill-name>/`，随工程版本化。`.gemini/skills` 或全局 Agent 的入口可以是联接，但不是独立副本；编辑入口前解析实际目标，避免把路由存根写穿唯一源。全局发现时明确项目根与适用环境，不能仅按通用目录名触发。
 
 ## 五、联动机制：pull-sync.ps1 与 Skills Manager 双向打通
 
 - 在 `scripts/pull-sync.ps1` 中加入第 4 步：检测并调用 `skills-manager-cli skills sync`。
-- 无论开发者在终端使用命令行 `pull-sync.ps1`，还是后续打开 Skills Manager 桌面端 GUI，两者的预设、开关和可用技能状态始终保持 100% 实时一致。
+- 上述 CLI/GUI 自动联动属于 2026-09-07 的实施记录，已由 2026-09-08 的 [技能多机同步契约](skill-sync-contract.md) 取代。当前拉取默认只更新 Git 正文，不再自动调用 Skills Manager；GUI 预设与部署依然是设备本机状态，须单独核验。

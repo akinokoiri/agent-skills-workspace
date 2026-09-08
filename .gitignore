@@ -33,6 +33,7 @@ skills-manager.db*
 .skills-manager.lock
 .secret.key
 .cache/
+/cache/
 scenarios/
 logs/
 skills/.skills-manager/

@@ -2,303 +2,283 @@
 .SYNOPSIS
     跨 Agent 与跨机器统一技能分发脚本 (Windows NTFS Junction)
 .DESCRIPTION
-    将 G:\agent-skills-workspace\skills (或当前仓库相对路径) 下的中央技能库
-    以免提权的 NTFS Junction 软链接形式，挂载到本机所有 Coding Agent 的全局技能目录。
+    将当前仓库 skills 下的中央技能库挂载到本机 Agent 的全局技能目录。
+    不调用 Skills Manager、Git 或其他同步脚本；未登记链接不会被清理。
 .PARAMETER DryRun
-    仅预览将要执行的操作，不实际修改文件系统。
+    仅预览，不创建目录、备份、联接或写入配置与规则。
 .PARAMETER Status
-    检查并输出当前所有 Agent 的技能挂载状态与健康度。
+    只读检查链接是否指向当前中央技能库。
 .PARAMETER Force
-    若目标存在旧版物理文件夹或冲突链接，自动备份并替换为 Junction。
+    备份并替换冲突的物理副本或规则文件；未知链接始终保留。
+.PARAMETER UserProfilePath
+    可选的绝对用户根路径；未指定时使用系统 UserProfile。用于显式跨机配置或隔离测试。
 #>
 
 [CmdletBinding()]
 param(
     [switch]$DryRun,
     [switch]$Status,
-    [switch]$Force = $true
+    [switch]$Force,
+    [string]$UserProfilePath
 )
 
 $ErrorActionPreference = "Stop"
-
-# 1. 解析中央库路径 (优先相对于脚本自身目录，兼具跨机可移植性)
+$script:Unresolved = [System.Collections.Generic.List[string]]::new()
 $WorkspaceRoot = (Resolve-Path "$PSScriptRoot\..").Path
 $CentralSkillsDir = Join-Path $WorkspaceRoot "skills"
-
-if (!(Test-Path $CentralSkillsDir)) {
-    Write-Error "找不到中央技能目录: $CentralSkillsDir"
-    exit 1
+if (!(Test-Path -LiteralPath $CentralSkillsDir -PathType Container)) {
+    throw "找不到中央技能目录: $CentralSkillsDir"
 }
 
-# 2. 定义支持的 Agent 目录映射
-$UserHome = [System.Environment]::GetFolderPath("UserProfile")
+function Get-NormalPath([string]$Path) {
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    if ($fullPath -eq [System.IO.Path]::GetPathRoot($fullPath)) { return $fullPath }
+    return $fullPath.TrimEnd('\', '/')
+}
+function Get-Entry([string]$Path) {
+    return Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+}
+function Test-Reparse($Item) {
+    return $null -ne $Item -and (($Item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)
+}
+function Get-LinkTarget($Item) {
+    if (!(Test-Reparse $Item) -or $Item.LinkType -notin @('Junction', 'SymbolicLink')) { return $null }
+    $targets = @($Item.Target)
+    if ($targets.Count -ne 1 -or !$targets[0]) { return $null }
+    $target = [string]$targets[0]
+    if (![System.IO.Path]::IsPathRooted($target)) { $target = Join-Path (Split-Path -Parent $Item.FullName) $target }
+    return Get-NormalPath $target
+}
+function Test-OwnedLink($Item, [string]$Source) {
+    return (Test-Reparse $Item) -and ((Get-LinkTarget $Item) -eq (Get-NormalPath $Source))
+}
+function Report-Conflict([string]$Message) {
+    $script:Unresolved.Add($Message)
+    Write-Warning $Message
+}
+
+# All writes stay below an explicit physical root. Never follow an agent root/parent junction.
+function Test-SafeDirectory([string]$Path, [string]$Root) {
+    $rootPath = Get-NormalPath $Root
+    $fullPath = Get-NormalPath $Path
+    if ($fullPath -ne $rootPath -and !$fullPath.StartsWith($rootPath.TrimEnd('\', '/') + '\', [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "路径超出允许根目录: $fullPath (根: $rootPath)"
+    }
+    $probe = $fullPath
+    while ($true) {
+        $item = Get-Entry $probe
+        if ($item -and ((Test-Reparse $item) -or !$item.PSIsContainer)) {
+            Report-Conflict "保留非物理目录边界，跳过: $probe"
+            return $false
+        }
+        if ($probe -eq $rootPath) { break }
+        $probe = Split-Path -Parent $probe
+    }
+    return $true
+}
+function Ensure-Directory([string]$Path, [string]$Root) {
+    if (!(Test-SafeDirectory $Path $Root)) { return $false }
+    if (!(Get-Entry $Path)) {
+        if ($DryRun) { Write-Host "[DryRun] 将创建目录: $Path" }
+        else { New-Item -ItemType Directory -Path $Path -Force | Out-Null }
+    }
+    return $true
+}
+
+if ($PSBoundParameters.ContainsKey('UserProfilePath')) {
+    if ([string]::IsNullOrWhiteSpace($UserProfilePath) -or $UserProfilePath -notmatch '^(?:[A-Za-z]:[\\/]|\\\\[^\\]+\\[^\\]+)') {
+        throw 'UserProfilePath 必须是绝对路径。'
+    }
+    $UserHome = Get-NormalPath $UserProfilePath
+} else {
+    $UserHome = Get-NormalPath ([System.Environment]::GetFolderPath('UserProfile'))
+}
+
+# Keep the existing product mappings; no manager CLI or machine-local database is consulted.
 $AgentTargets = @{
-    "ChatGPT (Codex)"  = Join-Path $UserHome ".codex\skills"
-    "Grok (grokbuild)" = Join-Path $UserHome ".grok\skills"
-    "DeepSeek Harness" = Join-Path $UserHome ".dsh\skills"
-    "Antigravity"                  = Join-Path $UserHome ".gemini\config\skills"
-    "Antigravity (Skills Manager)" = Join-Path $UserHome ".gemini\antigravity\skills"
-    "Claude Code"                  = Join-Path $UserHome ".claude\skills"
+    'ChatGPT (Codex)' = Join-Path $UserHome '.codex\skills'
+    'Grok (grokbuild)' = Join-Path $UserHome '.grok\skills'
+    'DeepSeek Harness' = Join-Path $UserHome '.dsh\skills'
+    'Antigravity' = Join-Path $UserHome '.gemini\config\skills'
+    'Antigravity (Skills Manager)' = Join-Path $UserHome '.gemini\antigravity\skills'
+    'Claude Code' = Join-Path $UserHome '.claude\skills'
 }
-
-# 获取中央库中的有效技能目录列表
-$CentralSkills = Get-ChildItem -Path $CentralSkillsDir -Directory | Where-Object {
-    Test-Path (Join-Path $_.FullName "SKILL.md")
-}
-
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host " 🚀 跨 Agent 统一技能同步与挂载工具 (NTFS Junction)" -ForegroundColor Cyan
-Write-Host " 中央技能库: $CentralSkillsDir" -ForegroundColor Gray
-Write-Host " 发现中央技能: $($CentralSkills.Count) 个 ($($CentralSkills.Name -join ', '))" -ForegroundColor Gray
-Write-Host "============================================================" -ForegroundColor Cyan
-
-# 辅助函数: 检查路径是否为坏死链接
-# 辅助函数: 安全解除 Junction 或删除文件，避免交互式递归确认与误伤母本
-function Remove-ItemSafe($Path) {
-    if (Test-Path -LiteralPath $Path) {
-        $item = Get-Item -LiteralPath $Path -Force
-        if ($item.LinkType -in @("SymbolicLink", "Junction")) {
-            [System.IO.Directory]::Delete($Path, $false)
-        } else {
-            Remove-Item -LiteralPath $Path -Force -Recurse
-        }
-    }
-}
-function Test-BrokenLink($Path) {
-    if (!(Test-Path $Path)) { return $false }
-    $item = Get-Item -Path $Path -Force
-    if ($item.LinkType -in @("SymbolicLink", "Junction")) {
-        $target = $item.Target
-        if ($target -and !(Test-Path $target)) {
-            return $true
-        }
-    }
-    return $false
-}
-
-# 2.1 定义特定技能的分发目标过滤器 (未列出的技能默认全量分发给所有 Agent)
 $SkillTargetFilters = @{
-    "progress-brief" = @("Antigravity", "Antigravity (Skills Manager)", "Grok (grokbuild)")
+    'progress-brief' = @('Antigravity', 'Antigravity (Skills Manager)', 'Grok (grokbuild)')
 }
+$CentralSkills = @(Get-ChildItem -LiteralPath $CentralSkillsDir -Directory | Where-Object {
+    !(Test-Reparse $_) -and (Test-Path -LiteralPath (Join-Path $_.FullName 'SKILL.md') -PathType Leaf)
+})
+Write-Host "中央技能库: $CentralSkillsDir ($($CentralSkills.Count) 个技能)"
 
-# 3. 状态检查模式 (-Status)
 if ($Status) {
-    Write-Host "`n📊 [检查当前各 Agent 挂载状态]" -ForegroundColor Yellow
     foreach ($agentName in $AgentTargets.Keys | Sort-Object) {
         $targetDir = $AgentTargets[$agentName]
-        Write-Host "`n[$agentName] -> $targetDir" -ForegroundColor White
-        if (!(Test-Path $targetDir)) {
-            Write-Host "  (目录不存在)" -ForegroundColor DarkGray
-            continue
-        }
-
-        $items = Get-ChildItem -Path $targetDir -Force
+        Write-Host "`n[$agentName] -> $targetDir"
+        if (!(Test-SafeDirectory $targetDir $UserHome)) { continue }
         foreach ($skill in $CentralSkills) {
-            $isRestricted = $SkillTargetFilters.ContainsKey($skill.Name)
-            $isAllowedForAgent = (!$isRestricted) -or ($agentName -in $SkillTargetFilters[$skill.Name])
-
-            $matched = $items | Where-Object { $_.Name -eq $skill.Name }
-            if ($matched) {
-                if (!$isAllowedForAgent) {
-                    Write-Host "  ! 异常残留: $($skill.Name) (按规则应排除)" -ForegroundColor Red
-                } elseif ($matched.LinkType -eq "Junction") {
-                    $isHealthy = (Test-Path $matched.Target)
-                    $color = if ($isHealthy) { "Green" } else { "Red" }
-                    $tag = if ($isHealthy) { "✓ 正常联接" } else { "✗ 坏死联接" }
-                    Write-Host "  $tag : $($skill.Name) -> $($matched.Target)" -ForegroundColor $color
-                } else {
-                    Write-Host "  ! 物理副本: $($skill.Name) (非中央联接)" -ForegroundColor Yellow
-                }
-            } else {
-                if ($isAllowedForAgent) {
-                    Write-Host "  - 未挂载 : $($skill.Name)" -ForegroundColor DarkGray
-                } else {
-                    Write-Host "  · [已排除] : $($skill.Name)" -ForegroundColor DarkGray
-                }
-            }
+            $allowed = !$SkillTargetFilters.ContainsKey($skill.Name) -or $agentName -in $SkillTargetFilters[$skill.Name]
+            $item = Get-Entry (Join-Path $targetDir $skill.Name)
+            if (!$allowed) { Write-Host "[已排除] $($skill.Name); 当前存在: $($null -ne $item)" }
+            elseif (Test-OwnedLink $item $skill.FullName) { Write-Host "[正常联接] $($skill.Name)" }
+            elseif ($item) { Write-Host "[冲突/非中央联接] $($skill.Name) -> $(Get-LinkTarget $item)" }
+            else { Write-Host "[未挂载] $($skill.Name)" }
         }
     }
-    Write-Host "`n状态检查完成。" -ForegroundColor Cyan
+    Write-Host '状态检查完成（只读）。'
     exit 0
 }
 
-# 4. 执行挂载与同步模式
-$BackupBaseDir = Join-Path $WorkspaceRoot "backups\$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+$BackupBaseDir = Join-Path $WorkspaceRoot ("backups\sync-" + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N'))
+function Save-FileBackup([string]$Path, [string]$Label) {
+    $backupDir = Join-Path $BackupBaseDir $Label
+    if (!(Ensure-Directory $backupDir $WorkspaceRoot)) { throw "备份目录不可用: $backupDir" }
+    if (!$DryRun) {
+        $backupPath = Join-Path $backupDir (Split-Path -Leaf $Path)
+        Copy-Item -LiteralPath $Path -Destination $backupPath
+        @{ original = $Path; backup = $backupPath; kind = 'file-copy' } | ConvertTo-Json |
+            Set-Content -LiteralPath ($backupPath + '.restore.json') -Encoding UTF8
+    }
+}
+function Save-LinkBackup($Item, [string]$Source, [string]$Label) {
+    if (!(Test-OwnedLink $Item $Source)) { throw "拒绝解除未知链接: $($Item.FullName)" }
+    $backupDir = Join-Path $BackupBaseDir $Label
+    if (!(Ensure-Directory $backupDir $WorkspaceRoot)) { throw "备份目录不可用: $backupDir" }
+    if (!$DryRun) {
+        @{ original = $Item.FullName; target = Get-LinkTarget $Item; link_type = $Item.LinkType } |
+            ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backupDir ($Item.Name + '.link.json')) -Encoding UTF8
+    }
+}
+function Remove-OwnedLink([string]$Path, [string]$Source, [string]$Root, [string]$Label) {
+    if (!(Test-SafeDirectory (Split-Path -Parent $Path) $Root)) { return }
+    $item = Get-Entry $Path
+    if (!(Test-OwnedLink $item $Source)) { throw "拒绝解除未知链接: $Path" }
+    if ($DryRun) { Write-Host "[DryRun] 将备份并解除自有链接: $Path"; return }
+    Save-LinkBackup $item $Source $Label
+    if ($item.PSIsContainer) { [System.IO.Directory]::Delete($Path, $false) }
+    else { [System.IO.File]::Delete($Path) }
+}
+function Test-PhysicalTree([string]$Path) {
+    $item = Get-Entry $Path
+    if (Test-Reparse $item) { return $false }
+    if ($item.PSIsContainer) {
+        foreach ($child in Get-ChildItem -LiteralPath $Path -Force) {
+            if (!(Test-PhysicalTree $child.FullName)) { return $false }
+        }
+    }
+    return $true
+}
+function Mount-Skill([string]$Dest, [string]$Source, [string]$Root, [string]$Label) {
+    if (!(Test-SafeDirectory (Split-Path -Parent $Dest) $Root)) { return }
+    $item = Get-Entry $Dest
+    if (Test-OwnedLink $item $Source) { Write-Host "[正常联接] $Dest"; return }
+    if ($item) {
+        if (Test-Reparse $item) { Report-Conflict "保留未知链接（包括 -Force）: $Dest"; return }
+        if (!$Force) { Report-Conflict "保留物理副本；如需备份替换请显式指定 -Force: $Dest"; return }
+        if (!(Test-PhysicalTree $Dest)) { Report-Conflict "保留含链接的物理副本，需单独审查: $Dest"; return }
+        $backupDir = Join-Path $BackupBaseDir $Label
+        $backupDest = Join-Path $backupDir (Split-Path -Leaf $Dest)
+        if (!(Ensure-Directory $backupDir $WorkspaceRoot)) { throw "备份目录不可用: $backupDir" }
+        if ($DryRun) { Write-Host "[DryRun] 将备份 $Dest 至 $backupDest 并挂载 $Source"; return }
+        # Both final absolute paths and their parents have been checked; never recursively delete a physical copy.
+        Move-Item -LiteralPath $Dest -Destination $backupDest
+        @{ original = $Dest; backup = $backupDest; kind = 'physical-move' } | ConvertTo-Json |
+            Set-Content -LiteralPath ($backupDest + '.restore.json') -Encoding UTF8
+        Write-Host "已备份物理副本: $backupDest"
+    }
+    if ($DryRun) { Write-Host "[DryRun] 将挂载: $Dest -> $Source" }
+    else { New-Item -ItemType Junction -Path $Dest -Target $Source | Out-Null }
+}
 
 foreach ($agentName in $AgentTargets.Keys | Sort-Object) {
     $targetDir = $AgentTargets[$agentName]
-    Write-Host "`n------------------------------------------------------------" -ForegroundColor DarkGray
-    Write-Host "🔧 正在同步 Agent: [$agentName]" -ForegroundColor Yellow
-    Write-Host "   目标路径: $targetDir" -ForegroundColor Gray
-
-    if (!(Test-Path $targetDir)) {
-        if ($DryRun) {
-            Write-Host "   [DryRun] 将创建目标技能目录: $targetDir" -ForegroundColor Magenta
-        } else {
-            New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-            Write-Host "   已创建目标技能目录。" -ForegroundColor Gray
-        }
-    }
-
-    # A. 扫描并清理现有的坏死链接 (Broken Junctions/Symlinks)
-    if (Test-Path $targetDir) {
-        $existingItems = Get-ChildItem -Path $targetDir -Force
-        foreach ($item in $existingItems) {
-            if ($item.LinkType -in @("SymbolicLink", "Junction")) {
-                $target = $item.Target
-                # 检查链接目标是否存在
-                if (!$target -or !(Test-Path $target)) {
-                    Write-Host "   ⚠️ 发现坏死链接: $($item.Name) -> $target" -ForegroundColor Red
-                    if ($DryRun) {
-                        Write-Host "      [DryRun] 将删除坏死链接: $($item.FullName)" -ForegroundColor Magenta
-                    } else {
-                        Remove-ItemSafe $item.FullName
-                        Write-Host "      ✓ 已清理坏死链接。" -ForegroundColor Green
-                    }
-                }
-            }
-            # 清理历史遗留的 .old-link (若尚未被上述逻辑删除)
-            if ((Test-Path $item.FullName) -and ($item.Name -like "*.old-link")) {
-                Write-Host "   ⚠️ 发现历史残留链接: $($item.Name)" -ForegroundColor DarkYellow
-                if ($DryRun) {
-                    Write-Host "      [DryRun] 将删除残留链接: $($item.FullName)" -ForegroundColor Magenta
-                } else {
-                    Remove-ItemSafe $item.FullName
-                    Write-Host "      ✓ 已删除残留链接。" -ForegroundColor Green
-                }
-            }
-        }
-    }
-
-    # B. 逐个挂载中央技能 (NTFS Junction)
+    Write-Host "`n[$agentName] -> $targetDir"
+    if (!(Ensure-Directory $targetDir $UserHome)) { continue }
+    # Only names present in the central library are managed. Unrelated/broken/*.old-link entries are untouched.
     foreach ($skill in $CentralSkills) {
-        $skillName = $skill.Name
-        $sourcePath = $skill.FullName
-        $destPath = Join-Path $targetDir $skillName
-
-        # 检查是否在该 Agent 的挂载目标规则内
-        $isRestricted = $SkillTargetFilters.ContainsKey($skillName)
-        $isAllowedForAgent = (!$isRestricted) -or ($agentName -in $SkillTargetFilters[$skillName])
-
-        if (!$isAllowedForAgent) {
-            # 当前 Agent 在排除名单中：若目标已存在残留，自动清理
-            if (Test-Path $destPath) {
-                Write-Host "   🧹 发现排除技能残留，自动清理: $skillName" -ForegroundColor Yellow
-                if ($DryRun) {
-                    Write-Host "      [DryRun] 将删除排除残留: $destPath" -ForegroundColor Magenta
-                } else {
-                    Remove-ItemSafe $destPath
-                    Write-Host "      ✓ 已清理排除残留。" -ForegroundColor Green
-                }
-            }
+        $destPath = Join-Path $targetDir $skill.Name
+        $allowed = !$SkillTargetFilters.ContainsKey($skill.Name) -or $agentName -in $SkillTargetFilters[$skill.Name]
+        if (!$allowed) {
+            $item = Get-Entry $destPath
+            if (Test-OwnedLink $item $skill.FullName) { Remove-OwnedLink $destPath $skill.FullName $UserHome $agentName }
+            elseif ($item) { Write-Warning "保留排除名称下的非自有内容: $destPath" }
             continue
         }
+        Mount-Skill $destPath $skill.FullName $UserHome $agentName
+    }
+}
 
-        # 检查目标是否已存在
-        if (Test-Path $destPath) {
-            $destItem = Get-Item -Path $destPath -Force
-            if ($destItem.LinkType -eq "Junction") {
-                # 已经是联接点，检查目标是否正确
-                $currentTarget = (Resolve-Path $destItem.Target -ErrorAction SilentlyContinue).Path
-                $expectedTarget = (Resolve-Path $sourcePath).Path
-                if ($currentTarget -eq $expectedTarget) {
-                    Write-Host "   ✓ 已挂载且正常: $skillName" -ForegroundColor Green
-                    continue
-                } else {
-                    Write-Host "   🔄 联接目标不一致: $skillName (当前: $currentTarget)" -ForegroundColor Yellow
-                    if ($DryRun) {
-                        Write-Host "      [DryRun] 将重新建立联接指向: $sourcePath" -ForegroundColor Magenta
-                    } else {
-                        Remove-ItemSafe $destPath
-                        New-Item -ItemType Junction -Path $destPath -Target $sourcePath | Out-Null
-                        Write-Host "      ✓ 已重定向联接。" -ForegroundColor Green
-                    }
-                    continue
-                }
-            } else {
-                # 目标是物理文件夹或非 Junction 文件
-                Write-Host "   ⚠️ 目标存在物理副本或普通文件: $skillName" -ForegroundColor Yellow
-                if ($Force) {
-                    if ($DryRun) {
-                        Write-Host "      [DryRun] 将备份并替换为 Junction: $destPath" -ForegroundColor Magenta
-                    } else {
-                        $backupFolder = Join-Path $BackupBaseDir $agentName
-                        if (!(Test-Path $backupFolder)) { New-Item -ItemType Directory -Path $backupFolder -Force | Out-Null }
-                        $backupDest = Join-Path $backupFolder $skillName
-                        Move-Item -Path $destPath -Destination $backupDest -Force
-                        Write-Host "      已备份原副本至: $backupDest" -ForegroundColor Gray
-
-                        New-Item -ItemType Junction -Path $destPath -Target $sourcePath | Out-Null
-                        Write-Host "      ✓ 已挂载为中央库 Junction。" -ForegroundColor Green
-                    }
-                } else {
-                    Write-Host "      跳过 (未指定 -Force，保留原文件)。" -ForegroundColor Gray
-                }
-                continue
+# Antigravity compatibility index: merge entries, preserve unrelated settings, back up any changed original.
+$GeminiConfigDir = Join-Path $UserHome '.gemini\config'
+$SkillsJsonPath = Join-Path $GeminiConfigDir 'skills.json'
+if (Ensure-Directory $GeminiConfigDir $UserHome) {
+    $indexItem = Get-Entry $SkillsJsonPath
+    $indexValid = $true
+    $indexObject = [pscustomobject]@{ entries = @() }
+    if ($indexItem) {
+        if ((Test-Reparse $indexItem) -or $indexItem.PSIsContainer) {
+            Report-Conflict "保留非普通索引文件: $SkillsJsonPath"
+            $indexValid = $false
+        } else {
+            try {
+                $indexObject = Get-Content -LiteralPath $SkillsJsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
+                if ($null -eq $indexObject -or $indexObject -isnot [pscustomobject]) { throw '索引根必须是对象' }
+                if ($indexObject.PSObject.Properties['entries'] -and $indexObject.entries -isnot [System.Array]) { throw 'entries 必须是数组' }
+                if (!$indexObject.PSObject.Properties['entries']) { $indexObject | Add-Member -NotePropertyName entries -NotePropertyValue @() }
+            } catch {
+                Report-Conflict "保留无法合并的索引 $SkillsJsonPath : $_"
+                $indexValid = $false
             }
         }
-
-        # 目标不存在，直接建立 Junction
-        if ($DryRun) {
-            Write-Host "   [DryRun] 将挂载: $skillName -> $sourcePath" -ForegroundColor Magenta
-        } else {
-            New-Item -ItemType Junction -Path $destPath -Target $sourcePath | Out-Null
-            Write-Host "   ✓ 挂载成功: $skillName" -ForegroundColor Green
+    }
+    if ($indexValid) {
+        $formattedCentralPath = $CentralSkillsDir -replace '\\', '/'
+        $hasEntry = @($indexObject.entries | Where-Object {
+            $_.path -and (([string]$_.path -replace '\\', '/').TrimEnd('/') -eq $formattedCentralPath)
+        }).Count -gt 0
+        if (!$hasEntry) {
+            $indexObject.entries = @($indexObject.entries) + @([pscustomobject]@{ path = $formattedCentralPath })
+            if ($indexItem -and !$Force) { Report-Conflict "保留索引差异；如需备份合并请显式指定 -Force: $SkillsJsonPath" }
+            elseif ($DryRun) { Write-Host "[DryRun] 将合并全局技能索引: $SkillsJsonPath" }
+            else {
+                if ($indexItem) { Save-FileBackup $SkillsJsonPath 'Antigravity-index' }
+                [System.IO.File]::WriteAllText($SkillsJsonPath, ($indexObject | ConvertTo-Json -Depth 100), [System.Text.UTF8Encoding]::new($false))
+            }
         }
     }
 }
 
-# 5. 配置 Antigravity 全局配置与工作区规范
-Write-Host "`n------------------------------------------------------------" -ForegroundColor DarkGray
-Write-Host "🔧 正在配置 Antigravity 全局与工作区规范..." -ForegroundColor Yellow
-
-# A. 配置 ~/.gemini/config/skills.json (官方声明外部技能库)
-$GeminiConfigDir = Join-Path $UserHome ".gemini\config"
-if (!(Test-Path $GeminiConfigDir)) { New-Item -ItemType Directory -Path $GeminiConfigDir -Force | Out-Null }
-$SkillsJsonPath = Join-Path $GeminiConfigDir "skills.json"
-$formattedCentralPath = $CentralSkillsDir -replace '\\', '/'
-$skillsJsonObj = @{
-    entries = @(
-        @{ path = $formattedCentralPath }
-    )
-}
-$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-$skillsJsonText = $skillsJsonObj | ConvertTo-Json -Depth 5
-[System.IO.File]::WriteAllText($SkillsJsonPath, $skillsJsonText, $utf8NoBom)
-Write-Host "   ✓ 已生成 Antigravity 全局技能索引: $SkillsJsonPath" -ForegroundColor Green
-
-# B. 确保当前工作区规范 .agents/skills 联接
-$WorkspaceAgentsDir = Join-Path $WorkspaceRoot ".agents"
-if (!(Test-Path $WorkspaceAgentsDir)) { New-Item -ItemType Directory -Path $WorkspaceAgentsDir -Force | Out-Null }
-$WorkspaceAgentsSkills = Join-Path $WorkspaceAgentsDir "skills"
-if (!(Test-Path $WorkspaceAgentsSkills)) {
-    New-Item -ItemType Junction -Path $WorkspaceAgentsSkills -Target $CentralSkillsDir | Out-Null
-    Write-Host "   ✓ 已挂载工作区规范联接: $WorkspaceAgentsSkills -> $CentralSkillsDir" -ForegroundColor Green
-} else {
-    Write-Host "   ✓ 工作区规范联接正常: $WorkspaceAgentsSkills" -ForegroundColor Green
+$WorkspaceAgentsDir = Join-Path $WorkspaceRoot '.agents'
+if (Ensure-Directory $WorkspaceAgentsDir $WorkspaceRoot) {
+    Mount-Skill (Join-Path $WorkspaceAgentsDir 'skills') $CentralSkillsDir $WorkspaceRoot 'workspace-agents'
 }
 
-# C. 自动分发全局行为准则 rules/AGENTS.md 到各 Agent 规则目录
-$CentralAgentsRule = Join-Path $WorkspaceRoot "rules\AGENTS.md"
-if (Test-Path $CentralAgentsRule) {
-    Write-Host "`n📋 正在同步全局行为准则 rules/AGENTS.md..." -ForegroundColor Yellow
-
-    # Antigravity 全局规则
-    $GeminiRulesDir = Join-Path $GeminiConfigDir "rules"
-    if (!(Test-Path $GeminiRulesDir)) { New-Item -ItemType Directory -Path $GeminiRulesDir -Force | Out-Null }
-    Copy-Item -Path $CentralAgentsRule -Destination (Join-Path $GeminiRulesDir "AGENTS.md") -Force
-    Write-Host "   ✓ 已同步至 Antigravity 规则: $GeminiRulesDir\AGENTS.md" -ForegroundColor Green
-
-    # Grok (grokbuild) 全局规则
-    $GrokRulesDir = Join-Path $UserHome ".grok\rules"
-    if (Test-Path (Join-Path $UserHome ".grok")) {
-        if (!(Test-Path $GrokRulesDir)) { New-Item -ItemType Directory -Path $GrokRulesDir -Force | Out-Null }
-        Copy-Item -Path $CentralAgentsRule -Destination (Join-Path $GrokRulesDir "AGENTS.md") -Force
-        Write-Host "   ✓ 已同步至 Grok 规则: $GrokRulesDir\AGENTS.md" -ForegroundColor Green
+# Existing rule conflicts are preserved by default; Force backs up ordinary files before replacement.
+$CentralAgentsRule = Join-Path $WorkspaceRoot 'rules\AGENTS.md'
+if (Test-Path -LiteralPath $CentralAgentsRule -PathType Leaf) {
+    $ruleDirs = @((Join-Path $GeminiConfigDir 'rules'), (Join-Path $UserHome '.grok\rules'))
+    foreach ($ruleDir in $ruleDirs) {
+        if (!(Ensure-Directory $ruleDir $UserHome)) { continue }
+        $rulePath = Join-Path $ruleDir 'AGENTS.md'
+        $ruleItem = Get-Entry $rulePath
+        if ($ruleItem) {
+            if ((Test-Reparse $ruleItem) -or $ruleItem.PSIsContainer) { Report-Conflict "保留非普通规则文件: $rulePath"; continue }
+            if ((Get-FileHash -LiteralPath $rulePath).Hash -eq (Get-FileHash -LiteralPath $CentralAgentsRule).Hash) { continue }
+            if (!$Force) { Report-Conflict "保留规则冲突；如需备份替换请显式指定 -Force: $rulePath"; continue }
+        }
+        if ($DryRun) { Write-Host "[DryRun] 将备份（若存在）并分发规则: $rulePath" }
+        else {
+            if ($ruleItem) {
+                $label = if ($ruleDir -eq $ruleDirs[0]) { 'Antigravity-rules' } else { 'Grok-rules' }
+                Save-FileBackup $rulePath $label
+            }
+            Copy-Item -LiteralPath $CentralAgentsRule -Destination $rulePath
+        }
     }
 }
-
-Write-Host "`n============================================================" -ForegroundColor Cyan
-Write-Host " 🎉 所有目标 Agent 的技能挂载与环境配置已处理完毕！" -ForegroundColor Green
-Write-Host "============================================================" -ForegroundColor Cyan
-
+if ($script:Unresolved.Count -gt 0 -and !$DryRun) {
+    Write-Warning "同步未完成：$($script:Unresolved.Count) 项冲突已保留。仓库内容可能已更新，但相应 Agent 入口仍需处理。"
+    exit 2
+}
+if ($DryRun) { Write-Host '`n预览完成（未写入）；请检查上方保留/冲突提示。' }
+else { Write-Host '`n技能挂载与配置处理完成。' }

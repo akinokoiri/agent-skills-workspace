@@ -2,7 +2,7 @@
 
 Bring an already-initialized project instance up to the current skill spec, or measure how far it has drifted. `cairn init` freezes the spec of its day into the project (AGENTS.md wording, config shape, LOG conventions); the skill keeps evolving, and nothing updates the frozen copy automatically. This reference is both the detection checklist and the execution manual for closing that gap.
 
-**Current spec date: 2026-08-07**
+**Current spec date: 2026-09-08**
 
 ## Two layers of "upgrade" — keep them apart
 
@@ -15,9 +15,10 @@ This is a **pull model**: upstream changes never notify anyone. Drift is tolerat
 
 1. Read `skill_spec_date` from the project's `.cairn/config.yaml`.
    - **Missing field** → treat as predating every entry: run the full changelog below.
-2. Walk the changelog entries **newer than that date**, oldest first. For each: run **Detect**; if drifted, apply **Fix** according to its safety level — `auto` fixes may be applied directly (show the diff), `confirm` fixes are proposed and wait for the user.
-3. When all entries are handled, stamp `skill_spec_date` in `.cairn/config.yaml` with the current spec date above (add the field if absent).
-4. Record the upgrade as one `cairn/LOG.md` entry — what was checked, what was fixed, what was declined — same as an audit run logs itself.
+   - Also inspect the latest upgrade report for explicitly unresolved entries; recheck those even when their dates are not newer than the stored date.
+2. Walk the changelog entries **newer than that date**, oldest first. For each: run **Detect**; if drifted, apply **Fix** according to its safety level — `auto` fixes may be applied directly (show the diff), `confirm` fixes require authorization for the concrete change; use explicit authorization already given for this task and ask only when it is missing or the target/scope has changed.
+3. Stamp `skill_spec_date` with the current spec date only when every applicable required fix is applied and verified, or verified as not applicable. If a required fix is declined, deferred, blocked, or still unverified, retain the previous date (leave an absent field absent). Declining an explicitly optional offer, such as saving user defaults, does not block the stamp.
+4. Record the upgrade as one `cairn/LOG.md` entry: what was checked, applied, or declined. Identify every unresolved required entry by changelog date/title and reason, with a pointer to details when needed, so a later audit can find it. A partial upgrade is reported as partial rather than complete.
 
 `cairn audit` runs steps 1–2 as a drift check and reports findings without fixing (see `audit.md`); a user-requested upgrade runs all four steps.
 
@@ -30,7 +31,7 @@ Entry format — four fixed fields:
 - **Affects**: which instance surface (`AGENTS.md` / `config` / `LOG` / `knowledge-base notes` / `user environment`).
 - **Detect**: one concrete, executable check.
 - **Fix**: the repair action.
-- **Safety**: `auto` (mechanical, apply with diff shown) or `confirm` (changes meaning, target, or anything outside the project — ask first).
+- **Safety**: `auto` (mechanical, apply with diff shown) or `confirm` (changes meaning, target, or anything outside the project; verify that the user authorized the concrete change before applying it).
 
 ## Changelog (oldest first)
 
@@ -73,7 +74,7 @@ Entry format — four fixed fields:
 
 - **Affects**: `config`.
 - **Detect**: the field is missing.
-- **Fix**: run the full changelog above (missing field = predates everything), then stamp the field with the current spec date. This entry is the cold-start path for every instance initialized before the field existed.
+- **Fix**: run the full changelog (missing field = predates everything), then apply the stamp condition in Running an upgrade, step 3. This entry is the cold-start path for every instance initialized before the field existed.
 - **Safety**: `auto` (the stamp itself; individual fixes above keep their own levels).
 
 ### 2026-07-16 — human provenance and optional origin quotes
@@ -96,3 +97,10 @@ Entry format — four fixed fields:
 - **Detect**: two independent checks. ① `~/.config/cairn/config.yaml` has `git_policy` (or `reference_git_policy`) under `defaults` = drifted: the field used to be a cascading default, so any project initialized after it was saved may have inherited an answer that was never asked. ② The project's `.cairn/config.yaml` says `git_policy: ignore` or `private_sync` but the project's `.gitignore` has no rule covering `knowledge_dir` = drifted: the stated policy has no effect and `git add .` will commit the knowledge dir anyway. (Same check for `reference_git_policy` against `<knowledge_dir>/Reference/`.)
 - **Fix**: ① delete the `git_policy` / `reference_git_policy` keys from the user-level `defaults` block; leave the rest of the file untouched. ② Ask the user once what this specific repository actually wants — do not assume the recorded value was ever a real answer — then either add the missing `.gitignore` rule or correct `git_policy` in `.cairn/config.yaml` to match reality. An instance that inherited its value silently has no other point at which it gets corrected.
 - **Safety**: `confirm` (touches a file outside the project and changes what future commits contain).
+
+### 2026-09-08 — checkpoint reference resolves from the installed skill
+
+- **Affects**: project `AGENTS.md` completion checkpoint pointer.
+- **Detect**: the checkpoint points to bare `references/maintenance.md` without identifying the installed `project-cairn` skill as its base. An existing explicit skill-root path or equivalent loader instruction already resolves this issue and needs no rewrite.
+- **Fix**: qualify only that pointer as the installed `project-cairn` skill's reference, using the current template as guidance; preserve all existing project rules, wording, and resolved configuration. Verify the installed skill reference exists.
+- **Safety**: `auto` for this path clarification during an authorized upgrade; show the diff. This entry does not add a new completion gate or migrate project content.
