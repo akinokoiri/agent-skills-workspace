@@ -2,6 +2,11 @@
 
 This file records substantive progress in reverse-chronological order — newest entry at the top, right below this line. Keep each entry short — summary and pointer only; conclusions settle into `cairn/<topic>.md`.
 
+## 2026-09-12 · 按自用项目整理公开介绍
+
+- 用户决定公开既有仓库；README 明确自用定位、AI 协助维护和第三方内容来源，不作全仓原创或统一许可声明。
+- 公开前检查当前跟踪文件及可达历史中的凭据模式，保留已有许可；说明见 [README](../README.md#内容来源与许可)。
+
 ## 2026-09-12 · 在仓库介绍明确 Agent 更新流程
 
 - README 为 Codex 的本仓库 skills 更新请求定义完整本机流程：技能正文与入口核验、委派策略应用及完整提示验收；用户限定的范围优先。

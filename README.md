@@ -1,4 +1,8 @@
-# 跨设备技能库
+# Agent Skills Workspace · 自用项目
+
+自用的 Agent 技能、规则与多设备同步项目。包含从外部收集的技能，以及通过 AI 协助整理、修改和迭代的脚本与文档。
+
+配置和默认策略按个人使用习惯维护，主要在自己的 Windows 设备上验证。仓库中的设备路径、工具版本和历史记录对应当时的使用环境，更新时仍需核对本机情况。
 
 通用技能与规则的 Git 来源是 [akinokoiri/agent-skills-workspace](https://github.com/akinokoiri/agent-skills-workspace)。各设备克隆本仓库，修改经审查、提交和推送后，由其他设备拉取。联接指向本机实际克隆路径，不能复制另一台机器的盘符。
 
@@ -102,3 +106,9 @@ python -m unittest discover -s tests -v
 结构检查验证真实 YAML 和非空字段。Windows 行为测试使用临时仓库、临时用户目录和本地 Git remote；不运行真实 Skills Manager。导入、拉取和挂载分别检查退出状态，不能用“命令已调用”代替完成。
 
 当前运行约束见 [AGENTS.md](AGENTS.md)，同步设计与验证边界见 [同步契约](cairn/skill-sync-contract.md)，历史变更见 [cairn/LOG.md](cairn/LOG.md)。
+
+## 内容来源与许可
+
+本仓库是自用的收集与维护集合，内容并非全部原创。`skills/project-cairn/` 来源于 [iBlinkQ/project-cairn](https://github.com/iBlinkQ/project-cairn)，保留其 [MIT 许可与版权说明](skills/project-cairn/LICENSE)，并包含本机使用过程中形成的修改。
+
+其他技能的上游来源与许可尚未在本仓库中逐项注明。已有的版权与许可说明按对应文件保留；本仓库没有为全部内容统一声明许可，也不把收集的内容标为维护者原创。
