@@ -21,7 +21,8 @@ These protocols govern work in this repository. Resolve the repository root befo
 
 ### 🔴 铁律三：防冲撞与备份隔离 (Conflict Prevention)
 * 严禁无预警覆盖已有同名技能；
-* 当更新已有技能时，在本仓库根的 `backups/<timestamp>/` 保留原文件与恢复清单。只修改已确认归属本任务的内容，不覆盖其他协作者的新改动。
+* 对已纳入 Git 且工作区基线干净的文件做局部编辑时，使用 Git 差异与提交保留可审查历史，无需额外复制备份。强制导入、覆盖冲突副本，或变更前状态无法从 Git 恢复时，先在 `backups/<timestamp>/` 保存原文件与恢复清单。
+* 只修改已确认归属本任务的内容，不覆盖用户或其他协作者的未提交改动；备份不构成覆盖授权。
 
 ---
 

@@ -2,7 +2,7 @@
 
 Bring an already-initialized project instance up to the current skill spec, or measure how far it has drifted. `cairn init` freezes the spec of its day into the project (AGENTS.md wording, config shape, LOG conventions); the skill keeps evolving, and nothing updates the frozen copy automatically. This reference is both the detection checklist and the execution manual for closing that gap.
 
-**Current spec date: 2026-09-08**
+**Current spec date: 2026-09-12**
 
 ## Two layers of "upgrade" — keep them apart
 
@@ -87,8 +87,8 @@ Entry format — four fixed fields:
 ### 2026-08-05 — completion replies require a Cairn checkpoint
 
 - **Affects**: `AGENTS.md` completion behavior.
-- **Detect**: the project `AGENTS.md` lacks a rule requiring a Cairn checkpoint before any completion claim—including but not limited to work being complete or implemented, finalized, updated, synchronized, verified or tests passing; a problem being fixed or resolved; a deliverable being ready to use; a statement that work has ended; and semantically equivalent wording—or lacks the read-only exception and conditional LOG/topic/ROADMAP behavior.
-- **Fix**: add the current `assets/templates/AGENTS.md` Completion reply gate, translated per project language; keep the instance's resolved project/provider values unchanged.
+- **Detect**: the project `AGENTS.md` lacks a completion checkpoint with a read-only exception and conditional LOG/topic/ROADMAP behavior. The task-based checkpoint introduced on 2026-09-12 satisfies this historical entry; do not restore a gate based on completion wording.
+- **Fix**: add the current `assets/templates/AGENTS.md` Completion checkpoint, translated per project language; keep the instance's resolved project/provider values unchanged.
 - **Safety**: `confirm` (changes when the agent may finish a reply and can cause project knowledge files to be written).
 
 ### 2026-08-07 — `git_policy` is per-project and enforced via `.gitignore`
@@ -104,3 +104,10 @@ Entry format — four fixed fields:
 - **Detect**: the checkpoint points to bare `references/maintenance.md` without identifying the installed `project-cairn` skill as its base. An existing explicit skill-root path or equivalent loader instruction already resolves this issue and needs no rewrite.
 - **Fix**: qualify only that pointer as the installed `project-cairn` skill's reference, using the current template as guidance; preserve all existing project rules, wording, and resolved configuration. Verify the installed skill reference exists.
 - **Safety**: `auto` for this path clarification during an authorized upgrade; show the diff. This entry does not add a new completion gate or migrate project content.
+
+### 2026-09-12 — task-based reading and completion checkpoints
+
+- **Affects**: project `AGENTS.md` reading routes and completion checkpoint.
+- **Detect**: the entry requires ROADMAP and LOG for every task, or triggers a maintenance load on any completion wording without excluding explanations, read-only assessments, status updates, waiting, and work without substantive progress. Equivalent task-scoped routes already satisfy this entry.
+- **Fix**: use the current template's task-based reading routes and completion checkpoint. Preserve project-specific prerequisites with a concrete operational purpose, resolved configuration, and the record matrix. Keep skill-relative reference resolution. This changes the template and authorized instance upgrades only; it does not automatically rewrite other projects.
+- **Safety**: `confirm` (changes reading obligations and when project records are maintained); reuse explicit authorization for these changes.

@@ -4,3 +4,5 @@ description: A relentless interview to sharpen a plan or design, which also crea
 ---
 
 Load [grilling](../grilling/SKILL.md) for the interview and the bundled [domain-modeling reference](./references/domain-modeling/domain-modeling.md) for the glossary and ADR workflow, using the host's available skill-loading or file-reading capability. Apply both within the user's design scope; create documents only when a term or decision has actually been resolved.
+
+Keep proxy answers and tentative inferences labeled as hypotheses in any working notes; do not turn them into settled glossary definitions or accepted ADR decisions. Preserve unresolved questions separately until the user resolves or explicitly defers them.

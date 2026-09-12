@@ -2,9 +2,9 @@
 
 Ongoing behavior after meaningful work. Driven by reading project `AGENTS.md` as rules — there is no automatic chat-end hook.
 
-## Completion reply gate
+## Completion checkpoint
 
-Run this checkpoint before any completion claim, including but not limited to work being complete or implemented, finalized, updated, synchronized, verified or tests passing; a problem being fixed or resolved; a deliverable being ready to use; a statement that work has ended; and semantically equivalent wording. It does not trigger for an explanation, read-only assessment, waiting for confirmation, blocked work, or work without substantive progress.
+Run this checkpoint before the final handoff after substantive project progress. Trigger on work actually done or stable project conclusions reached, not on words such as "verified" in a progress update. Explanations, read-only assessments, status updates, waiting, and work without substantive progress do not trigger it. If a task ends blocked after substantive progress, preserve that progress using the same matrix without claiming the task is complete. An explicit read-only / no-edit request forbids Cairn writes.
 
 1. Judge what this work changed or concluded.
 2. Maintain only the records whose matrix condition is met.
@@ -30,7 +30,7 @@ If any check fails, fix the record before replying.
 
 ## Rules
 
-- Add a new entry to the top of `cairn/LOG.md` after substantive progress (reverse-chronological, newest first): what happened, what was decided, a pointer to detail. Keep each entry short (≤ ~20 lines).
+- Record substantive progress at meaningful milestones or the final handoff; related steps can share one entry. Add it to the top of `cairn/LOG.md` (newest first): what happened, what was decided, a pointer to detail. Keep each entry short (≤ ~20 lines); individual commands and progress messages do not each need an entry.
 - Update or create `cairn/<topic>.md` when a stable conclusion, decision, lesson, or reusable pattern appears. Create the topic note from `assets/templates/topic.md`; keep only body sections that have content.
 - When identifiable humans substantively form a topic's knowledge, add them to the topic frontmatter `contributors` list; ask rather than invent an identity when it cannot be resolved safely.
 - A topic may include `### Origin quote` (translated per `zh-glossary.md`) inside its formation/background section only when a short direct excerpt materially restores the scene and is safe to retain. Include speaker/approved role, date, and context; omit the subsection entirely when no suitable quote exists.

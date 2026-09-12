@@ -15,12 +15,12 @@
 - Knowledge base index: {{KNOWLEDGE_INDEX}}
 - Graduation target: {{GRADUATION_TARGET}}
 
-## Reading order after entering the project
+## Read what the task needs
 
 1. Read this file (AGENTS.md) first.
-2. If `cairn/ROADMAP.md` exists, read it for the roadmap, current focus, and open questions (ROADMAP is optional; a minimally-initialized project may not have one).
-3. Read the most recent entries in `cairn/LOG.md` (newest entries are at the top) for recent progress and key decisions.
-4. Read the relevant `cairn/` topic notes as needed for the task at hand.
+2. Read `cairn/ROADMAP.md`, if present, when resuming work or when the task depends on current focus, milestones, or open questions.
+3. Read relevant recent entries at the top of `cairn/LOG.md` when continuing earlier work or checking recent changes and decisions.
+4. Read the relevant `cairn/` topic notes when the task depends on their conclusions. A self-contained local edit need not load unrelated roadmap or history.
 
 ## Document responsibilities
 
@@ -53,6 +53,6 @@
 
 ## Knowledge distillation rules
 
-- After every substantive step forward, add one entry to the top of `cairn/LOG.md` (summary + pointer); let conclusions settle into the `cairn/` topic notes.
-- **Completion reply gate:** before any completion claim—including but not limited to work being complete or implemented, finalized, updated, synchronized, verified or tests passing; a problem being fixed or resolved; a deliverable being ready to use; a statement that work has ended; and semantically equivalent wording—load the installed `project-cairn` skill and run its skill-relative `references/maintenance.md` checkpoint (this is not a path under the project root); update only the records its trigger matrix requires, verify them, then reply. An explicit read-only / no-edit request forbids Cairn writes.
+- Record substantive progress at meaningful milestones or the final handoff in `cairn/LOG.md` (summary + pointer); related steps can share one entry. Let stable conclusions settle into topic notes.
+- **Completion checkpoint:** before the final handoff after substantive project progress, load the installed `project-cairn` skill's `references/maintenance.md` (relative to the skill, not the project); maintain and verify only records triggered by this work. Explanations, read-only assessments, status updates, waiting, and work without substantive progress do not trigger it. An explicit read-only / no-edit request forbids Cairn writes.
 - Cross-project reusable experience gets distilled into {{GRADUATION_TARGET}} via the graduation mechanism.

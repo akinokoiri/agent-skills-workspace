@@ -2,6 +2,13 @@
 
 This file records substantive progress in reverse-chronological order — newest entry at the top, right below this line. Keep each entry short — summary and pointer only; conclusions settle into `cairn/<topic>.md`.
 
+## 2026-09-12 · 按任务加载规则与不确定回答处理
+
+- grilling 增加具体场景与间接线索验证，允许无偏好、暂缓和已授权的默认选择；小批提问、按收益委派，并以当前决策范围限定结束条件。
+- Cairn 模板按任务读取状态，完成检查排除只读与进度播报；维护参考和实例升级说明同步调整，spec 日期为 2026-09-12。
+- 仓库局部编辑与强制覆盖按可恢复条件区分备份要求；本轮仍按修改前规则保存原文件和恢复清单。
+- 决策与验证边界见 [提示词与不确定回答处理](prompt-refinement-2026-09-12.md)。
+
 ## 2026-09-08 · 多机 Git 更新与本机部署分离
 
 - 用户确认通用技能源；修复拉取、导入、格式校验及挂载的失败边界，默认更新正文不隐式调用 Skills Manager。
