@@ -2,6 +2,12 @@
 
 This file records substantive progress in reverse-chronological order — newest entry at the top, right below this line. Keep each entry short — summary and pointer only; conclusions settle into `cairn/<topic>.md`.
 
+## 2026-09-12 · Codex 委派策略独立分发
+
+- 将低频 Luna 监控与主代理异常处理策略纳入 Git，以独立脚本仅合入本机指定配置键；普通技能拉取不隐式部署。
+- 增加完整提示核验、Windows 写入锁、ACL 备份与失败回滚；缩短策略，拒绝提示中间截断后的伪成功。
+- 部署步骤、兼容边界与验证方式见 [Codex 委派策略同步](codex-policy-sync.md)。
+
 ## 2026-09-12 · 按任务加载规则与不确定回答处理
 
 - grilling 增加具体场景与间接线索验证，允许无偏好、暂缓和已授权的默认选择；小批提问、按收益委派，并以当前决策范围限定结束条件。

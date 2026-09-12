@@ -8,6 +8,7 @@
 |---|---|
 | 通用技能正文与配套参考 | 本仓库 `skills/`，通过 Git 同步。 |
 | 通用行为规则 | 本仓库 `rules/AGENTS.md`；宿主已有定制文件发生差异时先保留。 |
+| Codex 委派与监控策略 | `config/codex/delegation-policy.txt`，Git 拉取后显式运行 `scripts/sync-codex-policy.py` 合入本机配置；见[使用说明](cairn/codex-policy-sync.md)。 |
 | 酒店业务技能 | 对应项目或百度共享源；不因本仓库更新而自动迁移入库。 |
 | Skills Manager 数据库、预设、部署记录和认证 | 各设备本机状态，Git 忽略；不把另一台机器的数据库或密钥复制过来。 |
 

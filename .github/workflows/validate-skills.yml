@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'skills/**'
+      - 'config/codex/**'
       - 'scripts/**'
       - 'tests/**'
       - 'requirements-dev.txt'
@@ -11,6 +12,7 @@ on:
   pull_request:
     paths:
       - 'skills/**'
+      - 'config/codex/**'
       - 'scripts/**'
       - 'tests/**'
       - 'requirements-dev.txt'
