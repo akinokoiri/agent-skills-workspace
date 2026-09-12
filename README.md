@@ -2,6 +2,28 @@
 
 通用技能与规则的 Git 来源是 [akinokoiri/agent-skills-workspace](https://github.com/akinokoiri/agent-skills-workspace)。各设备克隆本仓库，修改经审查、提交和推送后，由其他设备拉取。联接指向本机实际克隆路径，不能复制另一台机器的盘符。
 
+## 给执行更新的 Agent
+
+在 Codex 中，用户要求“更新/同步本仓库 skills”时，默认完成本机的**技能更新与 Codex 委派策略同步**，按下面的顺序执行。用户明确限定只查看、只拉取 Git、只更新某个技能或不改配置时，遵循其限定；单纯读取本 README 不构成执行更新的请求。其他客户端只处理其适用的技能入口，不改 Codex 配置。
+
+1. **定位本机。** 确认实际仓库、origin、分支和未提交改动；保留本机定制，工作区干净且跟踪正确的 `origin/main` 时才快进拉取。第一次使用先按下方“新设备与 Skills Manager”建立本机入口，不照搬其他设备的盘符、用户名或配置文件。
+2. **更新技能正文并核验入口。** 拉取后重新读取 `AGENTS.md` 及本节，检查现有入口能读到新版。已联接本机仓库的入口无需重装；缺失、物理副本或冲突按设备既有管理方式处理，不能轮流调用两个管理器或自动覆盖定制。
+3. **在 Codex 中同步策略。** 阅读 [Codex 策略同步说明](cairn/codex-policy-sync.md)。由 Agent 定位实际桌面/CLI 运行时，核对 Python 3.11+；桌面捆绑的 `codex.exe` 可能与 PATH CLI 不同。应用脚本目前仅支持 Windows；条件不满足时保留配置并报告此项未完成，不盲目安装依赖或绕过校验。
+4. **分别验收。** 报告仓库提交、技能入口、策略哈希及完整提示验证结果。Git 拉取成功不代表配置已应用；任务显示“完成”但拿不到结果也不算验收。需要时提醒重启 Codex 以刷新已加载的配置，不自动中断其他任务。
+
+确认设备条件后，在仓库根执行策略步骤；`$codexRuntime` 由 Agent 填入该设备核实过的可执行文件绝对路径：
+
+```powershell
+python scripts/sync-codex-policy.py --dry-run --codex $codexRuntime
+if ($LASTEXITCODE -ne 0) { throw '策略预演失败，保留本机配置并检查原因。' }
+python scripts/sync-codex-policy.py --apply --codex $codexRuntime
+if ($LASTEXITCODE -ne 0) { throw '策略应用未通过验证，按脚本结果检查恢复状态。' }
+```
+
+脚本会备份并只合入目标策略键、核验完整提示；重复执行已匹配的策略不会重写。不要复制整份 `config.toml`、认证、MCP 凭据或 Skills Manager 数据库，也不要把配置备份提交到 Git。状态检查与失败边界见上述策略说明。
+
+这是 Agent 接到更新请求后的完整流程；`pull-sync.ps1` 本身仍只拉取 Git，不隐式部署配置。连接问题按已确认的本机工具和目标排查：不能因主机名无法解析或 ICMP 探测失败就断言 SSH 不可用；必要时可通过可信设备传输已核对发布提交与哈希的 Git bundle，并继续做快进与部署验收。
+
 ## 文件来源与本机管理
 
 | 内容 | 权威位置与同步方式 |

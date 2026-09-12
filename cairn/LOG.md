@@ -2,6 +2,11 @@
 
 This file records substantive progress in reverse-chronological order — newest entry at the top, right below this line. Keep each entry short — summary and pointer only; conclusions settle into `cairn/<topic>.md`.
 
+## 2026-09-12 · 在仓库介绍明确 Agent 更新流程
+
+- README 为 Codex 的本仓库 skills 更新请求定义完整本机流程：技能正文与入口核验、委派策略应用及完整提示验收；用户限定的范围优先。
+- AGENTS 增加按请求触发的入口指针；Git 拉取脚本仍不隐式修改配置。详见 [README 更新流程](../README.md#给执行更新的-agent)。
+
 ## 2026-09-12 · Codex 委派策略独立分发
 
 - 将低频 Luna 监控与主代理异常处理策略纳入 Git，以独立脚本仅合入本机指定配置键；普通技能拉取不隐式部署。
