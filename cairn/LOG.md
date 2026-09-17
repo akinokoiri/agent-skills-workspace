@@ -2,6 +2,12 @@
 
 This file records substantive progress in reverse-chronological order — newest entry at the top, right below this line. Keep each entry short — summary and pointer only; conclusions settle into `cairn/<topic>.md`.
 
+## 2026-09-17 · Codex 工程执行规则独立入库
+
+- 将五条工程执行规则纳入 Codex 专用目录，保留完成声明的独立验收，按影响安排修复时机；Gemini／Grok 规则不变。
+- 增加显式部署入口并接入 README 的 Codex 更新流程；本机不同内容保留待合并，普通 Git 拉取不自动写规则。
+- 形成依据、部署方式与验证边界见 [Codex 工程执行规则](codex-execution-rules.md)。
+
 ## 2026-09-12 · 按自用项目整理公开介绍
 
 - 用户决定公开既有仓库；README 明确自用定位、AI 协助维护和第三方内容来源，不作全仓原创或统一许可声明。

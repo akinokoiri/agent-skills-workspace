@@ -28,7 +28,7 @@ These protocols govern work in this repository. Resolve the repository root befo
 
 ## 2. Agent 任务行动指令手册 (Action Playbook)
 
-收到本仓库技能更新/同步请求时，先按 [README 的 Agent 更新流程](README.md#给执行更新的-agent) 确定范围与验收项；Codex 的完整本机更新包含委派策略应用，用户限定只读、只拉取或单项更新时以其限定为准。
+收到本仓库技能更新/同步请求时，先按 [README 的 Agent 更新流程](README.md#给执行更新的-agent) 确定范围与验收项；Codex 的完整本机更新包含委派策略与专用规则应用，用户限定只读、只拉取或单项更新时以其限定为准。
 
 按用户已授权的动作选择对应脚本。安装或导入默认仅本地；只有明确要求提交/上传远端时添加 `-Push`。检查状态与执行同步分开，不把脚本退出成功等同于业务验收。导入和拉取默认只更新中央内容；只有明确选择脚本管理入口的设备按需加 `-Sync`。
 

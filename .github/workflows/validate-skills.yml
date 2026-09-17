@@ -5,6 +5,7 @@ on:
     paths:
       - 'skills/**'
       - 'config/codex/**'
+      - 'rules/codex/**'
       - 'scripts/**'
       - 'tests/**'
       - 'requirements-dev.txt'
@@ -13,6 +14,7 @@ on:
     paths:
       - 'skills/**'
       - 'config/codex/**'
+      - 'rules/codex/**'
       - 'scripts/**'
       - 'tests/**'
       - 'requirements-dev.txt'
