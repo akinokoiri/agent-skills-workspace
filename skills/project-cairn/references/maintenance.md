@@ -1,44 +1,58 @@
-# maintenance
+# Maintain useful project knowledge
 
-Ongoing behavior after meaningful work. Driven by reading project `AGENTS.md` as rules — there is no automatic chat-end hook.
+Apply at a meaningful delivery or when the user asks to summarize, correct, or prune experience. Respect a read-only request. Routine explanations, status checks, and waiting need no records.
 
-## Completion checkpoint
+## Decide what earns retention
 
-Run this checkpoint before the final handoff after substantive project progress. Trigger on work actually done or stable project conclusions reached, not on words such as "verified" in a progress update. Explanations, read-only assessments, status updates, waiting, and work without substantive progress do not trigger it. If a task ends blocked after substantive progress, preserve that progress using the same matrix without claiming the task is complete. An explicit read-only / no-edit request forbids Cairn writes.
+Ask: **What would a future worker choose differently, avoid rediscovering, or reuse because this is written down?**
 
-1. Judge what this work changed or concluded.
-2. Maintain only the records whose matrix condition is met.
-3. Verify the records that changed.
-4. Then send the completion reply.
+Retain a non-obvious fact, a user decision, a method that helps distinguish alternatives, a concrete failed approach with its cause, or a usable artifact. For design work, an annotated comparison or an accepted example can be more useful than a numerical rule. User preferences need attribution, not experimental proof.
 
-| Record | Maintain when | Global constraint |
-|---|---|---|
-| `cairn/LOG.md` | There was substantive progress. | Add a short newest-first summary and pointer; do not put long conclusions in LOG. |
-| `cairn/<topic>.md` | A stable conclusion, decision, lesson, or reusable pattern appeared. | Keep the current truth in a focused topic note. |
-| `cairn/ROADMAP.md` | Project state changed. | Update it in place only for a changed focus, milestone, or open question. |
-| `cairn/Cited.md` | Knowledge from the configured external knowledge base actually shaped the output. | Store pointers only; do not create or update it mechanically. |
+A proposed lesson should make its applicable situation and useful consequence understandable, with the smallest supporting example or source needed. This is a judgment, not a required form or per-paragraph checklist.
 
-An explicit read-only or no-edit request takes priority: do not write Cairn files, and state which candidate records are deferred instead.
+- Separate observation, user decision, inferred explanation, and tested remedy. A failure diagnosis can be useful even before a remedy exists; retain it as such.
+- Repeated runs of the same implementation show reproducibility, not independent support for its premise. User acceptance of a combined change does not identify which parameter caused improvement.
+- Record an unresolved hypothesis when it can guide a concrete next attempt. Generic possibilities and “be careful / check the whole result” advice do not earn a lesson by themselves.
+- If the guidance already exists, correct or improve that entry. Repeated mistakes may indicate poor retrieval, an unusable example, or an execution/capability failure; another copy of the warning is not automatically the remedy.
+- An experience can remain valid although an agent ignored it. Judge its information and usability, as well as actual reuse; do not delete it solely because one run failed.
+- Preserve material limits where they affect a decision. State a shared limit once beside the method or current status; do not append exhaustive untested-scope disclaimers to every paragraph.
+- Prefer tested examples, mappings, commands, and comparison images when they supply the missing knowledge. Do not add new tools, tests, or artwork merely to qualify a paragraph for retention.
 
-The completion reply may proceed only after this self-check passes for records changed by this checkpoint:
+“No new reusable lesson” is a valid outcome. Still record a changed deliverable or unfinished handoff if the next task needs it.
 
-- Every `cairn/LOG.md` entry added or modified by this checkpoint is in the correct newest-first position and is ≤20 lines; every local Markdown detail pointer in each such entry resolves to an existing target. Do not scan or block on unrelated historical entries here; broader history inspection belongs to `cairn audit`.
-- Every new AI-generated topic has valid YAML frontmatter with `type: project_topic`, `authoring_mode: ai_generated`, and an inline `contains` list whose values match the actual content (for example, `decision` for a decision or `lesson` for a solved pitfall). Do not invent a different schema.
-- ROADMAP changed only when project state changed.
+## Put information where it will be used
 
-If any check fails, fix the record before replying.
+| Information | Home |
+|---|---|
+| Latest artifact, accepted/rejected status, unresolved blocker, next authorized step | Existing current-status page or task handoff; replace superseded state |
+| Reusable method, costly-to-discover fact, user design decision | Relevant topic; merge with existing guidance |
+| Version sequence, detailed metrics, hashes, full logs, experiment history | Task report or archive; topic links to the necessary evidence |
+| A milestone, changed decision, reusable discovery, or correction worth retrieving later | One short newest-first LOG entry, outcome and link |
+| Changed milestone or focus | Existing ROADMAP, if used |
+| External knowledge actually used | Cited pointers through the consume route |
 
-## Rules
+Names are roles, not a demand to create all these files. Keep version-specific precision in the artifact that owns it. Avoid copying cheap environment lookups unless a non-obvious trap makes caching worthwhile.
 
-- Record substantive progress at meaningful milestones or the final handoff; related steps can share one entry. Add it to the top of `cairn/LOG.md` (newest first): what happened, what was decided, a pointer to detail. Keep each entry short (≤ ~20 lines); individual commands and progress messages do not each need an entry.
-- Update or create `cairn/<topic>.md` when a stable conclusion, decision, lesson, or reusable pattern appears. Create the topic note from `assets/templates/topic.md`; keep only body sections that have content.
-- When identifiable humans substantively form a topic's knowledge, add them to the topic frontmatter `contributors` list; ask rather than invent an identity when it cannot be resolved safely.
-- A topic may include `### Origin quote` (translated per `zh-glossary.md`) inside its formation/background section only when a short direct excerpt materially restores the scene and is safe to retain. Include speaker/approved role, date, and context; omit the subsection entirely when no suitable quote exists.
-- Preserve direct wording. Mark limited redaction explicitly (`[redacted]` / `[已脱敏]`); if safe use requires substantial rewriting, write a scene summary instead of labeling it a quote.
-- A solved pitfall goes into the relevant topic note's lesson area, with `contains` gaining `lesson`. If no topic note exists yet, the pitfall triggers creating one — do not start a catch-all `PITFALLS.md`.
-- Update `cairn/Cited.md` when knowledge from the configured external knowledge base is used (see `consume.md`).
-- Do not put long conclusions into LOG — LOG holds summaries and pointers; conclusions live in topic notes.
-- Correct old conclusions in topic notes in place and add a LOG pointer to the revision. Do not silently overwrite.
-- Keep engineering assets outside `cairn/`. Only knowledge *about* assets (how they were built, pitfalls, design rationale) may enter `cairn/`.
-- When an exploration branch is merged, abandoned, or rolled back, run a branch closure review (see `branch-closure.md`): classify its `cairn/` changes into discard / merge-to-project / graduate / archive-reference so valuable knowledge is not lost with the branch.
-- When the project's `language` (in `.cairn/config.yaml`) is not English, write `cairn/LOG.md` and topic-note content per the rules above using the non-English writing rule in `references/init.md` → Documentation language.
+A routine version advance already captured by the task report and current entry does not also need a LOG entry unless the project explicitly requires one.
+
+A new topic is justified when useful retained knowledge has no suitable owner and a future task can discover it. A solved pitfall alone does not require a new file.
+
+## Edit and prune together
+
+Read the affected current entry and the evidence needed to resolve conflicting claims. Preserve verified facts, explicit preferences, and working artifact links.
+
+Replace obsolete guidance in the owning topic. Put the short correction and evidence link in LOG rather than stacking a second contradictory answer underneath. Historical run reports retain their original observations, with a later status correction where readers could otherwise reuse a rejected result.
+
+For authorized cleanup, delete repetitions and empty advice; move useful history out of default reading. Preserve unique recoverable history in task reports or a compact archive when it would otherwise be lost. Avoid making every future worker load that archive.
+
+Preserve existing human attribution. Follow frontmatter rules when creating a topic, but do not expand a local content edit into unrelated provider or schema work.
+
+## Finish at the changed scope
+
+- Can the next worker locate the applicable artifact and tell its present status without replaying history?
+- Do retained lessons supply an action, distinction, useful explanation, or example beyond the default guidance?
+- Are the changed local links usable, and are retired headings' known callers redirected?
+- Are any new topic fields truthful (`type: project_topic`, `authoring_mode: ai_generated`, and a matching inline `contains` list)?
+- Is any warranted LOG entry short (at most 20 lines) and in newest-first position?
+
+Use checks proportional to the edit. Structural validation confirms links and format, not that a method works. Reuse later provides the behavioral evidence; do not claim a documentation edit has solved the underlying production failure.

@@ -30,7 +30,7 @@
 | `CLAUDE.md` (root) | One-line `@AGENTS.md` stub | Written once, never touched again |
 | `cairn/ROADMAP.md` | Roadmap and progress | Updated in place, kept concise |
 | `cairn/LOG.md` | Chronological log | New entry added at the top (newest first), each entry ≤ 20 lines, summary + pointer only |
-| `cairn/<topic>.md` | Knowledge topic note (current truth) | Updated in place; pitfalls go in a body section, tagged via `contains`; revisions get a LOG pointer |
+| `cairn/<topic>.md` | Reusable decisions, facts, methods, and examples | Update in place; prune repetition and expired advice; revisions get a LOG pointer |
 | `cairn/Reference/` | External raw input | Created as needed; append-only |
 | `cairn/Cited.md` | Knowledge base citation list | Pointers only, never copies of the source |
 
@@ -48,11 +48,11 @@
 ## Document collaboration rules
 
 - Before making a change, judge whether the user wants "discuss/suggest" or "just edit the doc directly"; when they say "take a look first / evaluate first," give analysis first — don't rewrite a formal doc outright.
-- When correcting a past judgment, append a correction note; don't silently overwrite it.
+- Correct obsolete conclusions in the owning topic; add a short correction and evidence pointer to LOG. Preserve detailed historical reports without leaving competing current instructions.
 - Don't write an unconfirmed judgment as a settled fact.
 
 ## Knowledge distillation rules
 
-- Record substantive progress at meaningful milestones or the final handoff in `cairn/LOG.md` (summary + pointer); related steps can share one entry. Let stable conclusions settle into topic notes.
+- Record meaningful progress in `cairn/LOG.md` (outcome + pointer). Retain a lesson when it changes a future choice, saves rediscovery, or supplies a reusable example; merge with the existing topic. No new reusable lesson is a valid outcome. Keep run details in task reports and update current state in place.
 - **Completion checkpoint:** before the final handoff after substantive project progress, load the installed `project-cairn` skill's `references/maintenance.md` (relative to the skill, not the project); maintain and verify only records triggered by this work. Explanations, read-only assessments, status updates, waiting, and work without substantive progress do not trigger it. An explicit read-only / no-edit request forbids Cairn writes.
 - Cross-project reusable experience gets distilled into {{GRADUATION_TARGET}} via the graduation mechanism.

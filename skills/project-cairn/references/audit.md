@@ -1,32 +1,30 @@
-# audit
+# Audit project knowledge
 
-Manual or agent-requested checks on the project knowledge layer. Audit is the safety net for records missed during day-to-day work.
+Start from the user's question and the documents that actual tasks encounter. Evaluate usefulness before metadata. An assessment request returns findings; a cleanup request authorizes appropriate local edits without another blanket confirmation. Provider publication remains a separate route.
 
-## Checks
+## Content and navigation
 
-- LOG entries that are too long or contain conclusions that belong in topic notes.
-- Topic notes without useful frontmatter.
-- Missing topic notes for repeated decisions or solved problems.
-- Contradictions between topic notes and old LOG entries (topic notes win; flag the stale LOG entry).
-- Engineering assets mixed into `cairn/` that should move back to the code tree.
-- Broken links or stale pointers in `Cited.md`.
-- Graduation candidates that have not been reviewed.
-- A deferred-provider project (`graduation.provider: none` in `.cairn/config.yaml`) holding confirmed graduation candidates — surface that connecting a knowledge base is pending (`graduation.md` → Deferred provider). Deferral itself is a valid state, not a defect; flag only when candidates are actually waiting.
-- Project topic notes marked `graduation_status: candidate` but not yet graduated or confirmed.
-- Project topic notes marked `graduation_status: deferred` or `graduation_status: not_applicable` without enough body context to explain the judgment.
-- Knowledge-base notes missing `graduated_from` provenance.
-- A new graduation missing a non-empty `graduated_by` list on either the project or knowledge-base side.
-- A touched team topic whose safely identifiable substantive human contributors are missing from `contributors`.
-- An empty Origin quote heading, or a direct quote without speaker/approved role, date, and context attribution.
-- Potentially risky quote content. Flag it only as a prompt for human review; never issue an automatic safety verdict.
-- Do not flag untouched legacy notes solely for lacking `contributors` or `graduated_by`: they remain valid and are backfilled only when touched or re-graduated.
-- Project topic notes that have graduated but lack the recommended back-pointer (`graduated_to` / `graduated_at`).
-- Project topic notes whose `updated` frontmatter date is newer than their `graduated_at` — the corresponding knowledge-base note may now be stale; suggest re-graduation (see `graduation.md` → Re-graduation), don't auto-trigger it.
-- Closed or abandoned exploration branches whose valuable `cairn/` knowledge was never salvaged (should trigger a branch closure review, or a LOG / topic / graduation-candidate follow-up).
-- Instance drift against the current skill spec: read `skill_spec_date` from `.cairn/config.yaml` and run the Detect step of every `references/upgrade.md` changelog entry newer than it (missing field = run the full changelog). Also recheck unresolved entries explicitly identified in the latest upgrade report, even if older than the stored date. Report drifted items with each entry's fix guidance and safety level; fixing them is the upgrade flow in `upgrade.md`, not audit's job.
+Apply the retention judgment in [maintenance](maintenance.md#decide-what-earns-retention):
 
-## Behavior
+- Can a worker identify the current artifact, status, and applicable method without reading a version diary?
+- Which passages change a choice or save rediscovery? Identify concrete useful facts and examples, not just a percentage to cut.
+- Which content is duplicated, expired, circular, or generic advice? Distinguish archive value from default-reading value.
+- Are rejected results still presented as pending, accepted, or current? Do inferred causes or untested remedies appear as settled lessons?
+- Is each fact maintained in one owner? Are useful resources buried behind weak or misleading pointers?
+- Do repeated failures suggest a missing fact, a retrieval problem, or inability to apply known guidance? Recommend the corresponding change rather than automatically adding rules.
 
-Suggest fixes. Do not silently rewrite large bodies of content without user confirmation.
+Estimate removable volume only as a labeled judgment unless actually classified. Length and schema compliance alone do not measure usefulness. Recommend retaining, merging, archiving, correcting, or deleting particular content.
 
-For an explicit read-only/no-edit audit, return findings without writing Cairn records and note that the audit log entry is deferred. Otherwise the audit run itself earns one `cairn/LOG.md` entry — a short summary of what was checked and what was found, plus a pointer to the findings, added at the top like any entry. Appending this record is not "rewriting content"; the no-rewrite rule protects existing material, not the log of the audit happening.
+## Targeted integrity checks
+
+Check links, current-state contradictions, and affected callers when content moves. LOG is historical; current topic guidance wins, with later corrections made discoverable. Keep runnable assets in the project rather than cairn.
+
+For topics being created or substantively edited, verify meaningful frontmatter against [frontmatter](frontmatter.md), preserve human attribution, and omit empty sections. Do not turn untouched legacy metadata into a prerequisite for the requested edit.
+
+When the request concerns cross-project graduation, also inspect source/back links, confirmer attribution, changed sources since graduation, and whether a candidate's stated status is still true. A deferred provider is a valid choice, not an error. Use [graduation](graduation.md) for a requested publication.
+
+Inspect installation/schema drift through [upgrade](upgrade.md) only when requested or when an actual incompatibility blocks this task.
+
+## Delivery
+
+For review, give specific findings and their impact without changing files. For authorized cleanup, edit the affected owners, preserve needed unique history, validate the changed references, and add one short LOG entry. Do not create an audit record solely because a read-only review occurred.

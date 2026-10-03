@@ -2,6 +2,12 @@
 
 This file records substantive progress in reverse-chronological order — newest entry at the top, right below this line. Keep each entry short — summary and pointer only; conclusions settle into `cairn/<topic>.md`.
 
+## 2026-10-03 · Cairn 与 Debugging 记录方式精简与跨 Agent 确认
+
+- 精简 Cairn 记录原则：区分观察、推论与补救，强调无新增经验亦为合规交付；维护与审计聚焦信息归属与证据链。
+- 精简 systematic-debugging：去除冗长表单模板，改以反映故障机制的有区分力指标与关键现象澄清为核心。
+- 确认本机多 Agent（Codex、Antigravity、Claude Code、DeepSeek Harness、Grok）通过 NTFS Junction 联接直连中央库，更新实时生效。
+
 ## 2026-09-17 · Codex 工程执行规则独立入库
 
 - 将五条工程执行规则纳入 Codex 专用目录，保留完成声明的独立验收，按影响安排修复时机；Gemini／Grok 规则不变。
